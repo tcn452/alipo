@@ -1,0 +1,45 @@
+services:
+  pocketbase:
+    build:
+      context: ./pb
+      dockerfile: Dockerfile
+    container_name: alipo_pocketbase
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - pb_data:/pb/pb_data
+    environment:
+      - AT_API_KEY=${AT_API_KEY:-}
+      - AT_USERNAME=${AT_USERNAME:-}
+      - WHATSAPP_TOKEN=${WHATSAPP_TOKEN:-}
+      - WHATSAPP_PHONE_ID=${WHATSAPP_PHONE_ID:-}
+      - WHATSAPP_VERIFY_TOKEN=${WHATSAPP_VERIFY_TOKEN:-}
+      - PAYCHANGU_API_KEY=${PAYCHANGU_API_KEY:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider http://127.0.0.1:8090/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_POCKETBASE_URL: ${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8090}
+    container_name: alipo_web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8090}
+      - POCKETBASE_INTERNAL_URL=http://pocketbase:8090
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+
+volumes:
+  pb_data:
+    name: alipo_pb_data
