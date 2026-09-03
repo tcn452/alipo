@@ -26,7 +26,12 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => { if (selectedStation) setStationId(selectedStation.id); else if (stations.length && !stationId) setStationId(stations[0].id); }, [selectedStation, stations, stationId]);
-  if (!isOpen) return null;
+  const closeModal = () => {
+    onClose();
+    if (typeof window !== 'undefined' && window.location.hash === '#report-fuel') {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    }
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -42,13 +47,13 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
         await pb.collection('stations').update(stationId, update);
       } catch {}
       setSuccess(true);
-      setTimeout(() => { setSuccess(false); onReportSubmitted(); onClose(); }, 1200);
+      setTimeout(() => { setSuccess(false); onReportSubmitted(); closeModal(); }, 1200);
     } catch (error) { setErrorMsg(error instanceof Error ? error.message : 'Unable to submit this report.'); } finally { setIsSubmitting(false); }
   };
 
-  return <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#032e20]/75 p-3 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="report-title">
+  return <div id="report-fuel" className={`report-modal fixed inset-0 z-50 place-items-center overflow-y-auto bg-[#032e20]/75 p-3 backdrop-blur-sm ${isOpen ? 'report-modal-open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="report-title">
     <div className="my-5 w-full max-w-[620px] border border-white/20 bg-[#fbf8f1] shadow-[0_30px_100px_rgba(0,0,0,.3)]">
-      <header className="flex items-start justify-between bg-forest px-5 py-5 text-white sm:px-7"><div><p className="eyebrow text-[#f5aa54]">Community update</p><h2 id="report-title" className="mt-1 text-2xl font-black tracking-[-.03em]">What&apos;s the fuel situation?</h2><p className="mt-1 text-xs text-white/60">One quick report can save someone a long trip.</p></div><button onClick={onClose} aria-label="Close report form" className="grid h-9 w-9 place-items-center border border-white/20 text-white"><X className="h-4 w-4" /></button></header>
+      <header className="flex items-start justify-between bg-forest px-5 py-5 text-white sm:px-7"><div><p className="eyebrow text-[#f5aa54]">Community update</p><h2 id="report-title" className="mt-1 text-2xl font-black tracking-[-.03em]">What&apos;s the fuel situation?</h2><p className="mt-1 text-xs text-white/60">One quick report can save someone a long trip.</p></div><a href="#" onClick={closeModal} aria-label="Close report form" className="grid h-9 w-9 place-items-center border border-white/20 text-white"><X className="h-4 w-4" /></a></header>
 
       {success ? <div className="px-7 py-20 text-center"><div className="mx-auto grid h-16 w-16 place-items-center bg-[#dfead7] text-forest"><Check className="h-8 w-8" /></div><h3 className="mt-5 text-2xl font-black">Zikomo kwambiri.</h3><p className="mt-2 text-sm text-muted">Your report helps keep Malawi moving.</p></div> :
       <form onSubmit={handleSubmit} className="space-y-6 p-5 sm:p-7">

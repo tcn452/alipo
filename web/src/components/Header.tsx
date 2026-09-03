@@ -22,7 +22,7 @@ export function Header({ onOpenReport }: HeaderProps) {
         </nav>
 
         <div className="flex items-center gap-2">
-          {onOpenReport && <button onClick={onOpenReport} className="inline-flex h-10 items-center gap-2 bg-orange px-4 text-xs font-black text-white transition hover:bg-[#d95a1c]"><Plus className="h-4 w-4" /><span className="sm:hidden">Report</span><span className="hidden sm:inline">Report fuel</span></button>}
+          {onOpenReport && <a href="#report-fuel" onClick={onOpenReport} className="inline-flex h-10 items-center gap-2 bg-orange px-4 text-xs font-black text-white transition hover:bg-[#d95a1c]"><Plus className="h-4 w-4" /><span className="sm:hidden">Report</span><span className="hidden sm:inline">Report fuel</span></a>}
         </div>
       </div>
     </header>

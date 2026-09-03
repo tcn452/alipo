@@ -24,7 +24,7 @@ export function StationCard({ station, onReportClick, onSelectStation, isSelecte
         <div><span className="block text-[10px] uppercase tracking-wide text-muted">Queue</span><strong className="mt-0.5 flex items-center gap-1"><Clock3 className="h-3 w-3" /> {queue?.duration || 'Unknown'}</strong></div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between"><span className="text-[11px] text-muted">Updated <TimeAgo date={station.last_reported_at || station.updated} /></span><button onClick={(event) => { event.stopPropagation(); onReportClick(station); }} className="inline-flex items-center gap-1 text-xs font-black text-forest">Update <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></button></div>
+      <div className="mt-3 flex items-center justify-between"><span className="text-[11px] text-muted">Updated <TimeAgo date={station.last_reported_at || station.updated} /></span><a href="#report-fuel" onClick={(event) => { event.stopPropagation(); onReportClick(station); }} className="inline-flex items-center gap-1 text-xs font-black text-forest">Update <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></a></div>
     </article>
   );
 }
