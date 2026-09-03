@@ -10,6 +10,7 @@ import { CITIES } from '@/lib/constants';
 import { pb } from '@/lib/pocketbase';
 import { Station } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
+import { calculateDistanceKm } from '@/lib/utils';
 
 const StationMap = dynamic(() => import('@/components/map/StationMap'), {
   ssr: false,
@@ -30,22 +31,40 @@ const SEED_FALLBACK: Station[] = [
 
 const STATUS_FILTERS = [{ id: 'all', label: 'All reports' }, { id: 'available', label: 'Available' }, { id: 'low', label: 'Low supply' }, { id: 'out', label: 'No fuel' }];
 
+function mergeStations(reported: Station[], mapped: Station[]) {
+  const merged = [...reported];
+  for (const candidate of mapped) {
+    const duplicate = merged.some((station) => calculateDistanceKm(station.latitude, station.longitude, candidate.latitude, candidate.longitude) < 0.12);
+    if (!duplicate) merged.push(candidate);
+  }
+  return merged;
+}
+
 export default function HomePage() {
   const [stations, setStations] = useState<Station[]>(SEED_FALLBACK);
-  const [selectedCity, setSelectedCity] = useState('All Cities');
+  const [selectedCity, setSelectedCity] = useState('Lilongwe');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStation, setSelectedStation] = useState<Station | null>(SEED_FALLBACK[0]);
+  const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('list');
   const [loading, setLoading] = useState(false);
 
   const fetchStations = async () => {
     setLoading(true);
-    try {
-      const records = await pb.collection('stations').getFullList({ sort: '-updated' });
-      if (records.length) setStations(records as unknown as Station[]);
-    } catch {} finally { setLoading(false); }
+    const [reportedResult, mappedResult] = await Promise.allSettled([
+      pb.collection('stations').getFullList({ sort: '-updated' }),
+      fetch('/api/stations/lilongwe').then(async (response) => {
+        if (!response.ok) throw new Error('Mapped stations unavailable');
+        return response.json() as Promise<{ stations: Station[] }>;
+      }),
+    ]);
+    const reported = reportedResult.status === 'fulfilled' && reportedResult.value.length
+      ? reportedResult.value as unknown as Station[]
+      : SEED_FALLBACK;
+    const mapped = mappedResult.status === 'fulfilled' ? mappedResult.value.stations : [];
+    setStations(mergeStations(reported, mapped));
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -110,14 +129,15 @@ export default function HomePage() {
 
         <section className="mx-auto grid max-w-[1440px] lg:min-h-[720px] lg:grid-cols-[440px_minmax(0,1fr)]">
           <aside className={`${activeTab === 'map' ? 'hidden lg:block' : 'block'} border-r border-line bg-[#f8f5ee] px-4 py-6 sm:px-8 lg:px-7`}>
-            <div className="mb-5 flex items-end justify-between"><div><p className="eyebrow text-orange">Live near you</p><h2 className="mt-1 text-2xl font-black tracking-[-.03em]">{filteredStations.length} fuel stations</h2></div><button onClick={fetchStations} className="inline-flex items-center gap-2 text-xs font-bold text-forest"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button></div>
+            <div className="mb-3 flex items-end justify-between"><div><p className="eyebrow text-orange">{selectedCity === 'Lilongwe' ? 'Lilongwe coverage' : 'Live near you'}</p><h2 className="mt-1 text-xl font-black tracking-[-.03em]">{filteredStations.length} fuel stations{selectedCity === 'Lilongwe' ? ' within 20 km' : ''}</h2></div><button onClick={fetchStations} className="inline-flex items-center gap-2 text-xs font-bold text-forest"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button></div>
+            {selectedCity === 'Lilongwe' && <p className="mb-5 border-l-2 border-orange pl-3 text-[11px] leading-4 text-muted">Mapped with OpenStreetMap. Live availability appears after an Alipo community report.</p>}
             {filteredStations.length ? <div className="space-y-3 lg:max-h-[650px] lg:overflow-y-auto lg:pr-2">{filteredStations.map((station) => <StationCard key={station.id} station={station} isSelected={selectedStation?.id === station.id} onSelectStation={setSelectedStation} onReportClick={(item) => { setSelectedStation(item); setIsReportModalOpen(true); }} />)}</div> : <div className="border border-line bg-white p-8 text-center"><Info className="mx-auto h-6 w-6 text-muted" /><p className="mt-3 font-bold">No matching stations</p><p className="mt-1 text-sm text-muted">Try another area or fuel status.</p></div>}
           </aside>
 
           <div className={`${activeTab === 'list' ? 'hidden lg:block' : 'block'} relative min-h-[610px] bg-[#dce2d6] lg:min-h-[720px]`}>
-            <StationMap stations={filteredStations} selectedStation={selectedStation} onSelectStation={setSelectedStation} center={mapCenter} zoom={selectedCity === 'All Cities' ? 7 : 12} />
+            <StationMap stations={filteredStations} selectedStation={selectedStation} onSelectStation={setSelectedStation} center={mapCenter} zoom={selectedCity === 'All Cities' ? 7 : 12} radiusKm={selectedCity === 'Lilongwe' ? 20 : undefined} />
             {selectedStation && <div className="absolute bottom-5 left-4 right-4 z-[400] border border-black/10 bg-white p-5 shadow-[0_24px_70px_rgba(5,48,33,.22)] sm:left-6 sm:right-auto sm:w-[410px]">
-              <div className="flex items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[.14em] text-forest"><ShieldCheck className="h-4 w-4" /> Station verified</div><h3 className="mt-2 text-xl font-black tracking-[-.03em]">{selectedStation.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {selectedStation.district}, {selectedStation.city}</p></div><span className="whitespace-nowrap bg-[#e1edd9] px-3 py-1.5 text-xs font-black text-forest">Fuel available</span></div>
+              <div className="flex items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[.14em] text-forest"><ShieldCheck className="h-4 w-4" /> {selectedStation.verified ? 'Station verified' : 'Mapped location'}</div><h3 className="mt-2 text-xl font-black tracking-[-.03em]">{selectedStation.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {selectedStation.district}, {selectedStation.city}</p></div><span className={`whitespace-nowrap px-3 py-1.5 text-xs font-black ${selectedStation.latest_status === 'available' ? 'bg-[#e1edd9] text-forest' : 'bg-[#eeeae1] text-muted'}`}>{selectedStation.latest_status === 'available' ? 'Fuel available' : selectedStation.latest_status === 'low' ? 'Low supply' : selectedStation.latest_status === 'out' ? 'No fuel' : 'Awaiting report'}</span></div>
               <div className="mt-4 grid grid-cols-3 border-y border-line py-3 text-xs"><div><span className="block text-muted">Petrol</span><strong className="font-mono">MWK {selectedStation.latest_price_petrol?.toLocaleString() || '—'}</strong></div><div><span className="block text-muted">Diesel</span><strong className="font-mono">MWK {selectedStation.latest_price_diesel?.toLocaleString() || '—'}</strong></div><div><span className="block text-muted">Updated</span><strong><TimeAgo date={selectedStation.last_reported_at || selectedStation.updated} /></strong></div></div>
               <a href="#report-fuel" onClick={() => setIsReportModalOpen(true)} className="mt-4 inline-flex w-full items-center justify-between bg-forest px-4 py-3 text-sm font-black text-white transition hover:bg-[#0b5940]">Report an update <ArrowRight className="h-4 w-4" /></a>
             </div>}

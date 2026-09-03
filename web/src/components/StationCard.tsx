@@ -14,7 +14,7 @@ export function StationCard({ station, onReportClick, onSelectStation, isSelecte
   return (
     <article onClick={() => onSelectStation?.(station)} className={`group cursor-pointer border bg-white p-4 transition ${isSelected ? 'border-forest shadow-[inset_4px_0_0_#06452f]' : 'border-line hover:border-[#97a491]'}`}>
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0"><div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[.14em] text-muted"><span>{station.brand}</span>{station.verified && <span className="inline-flex items-center gap-1 text-forest"><ShieldCheck className="h-3.5 w-3.5" /> Verified</span>}</div><h3 className="truncate text-base font-black tracking-[-.02em] text-ink">{station.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {station.district}, {station.city}</p></div>
+        <div className="min-w-0"><div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[.14em] text-muted"><span>{station.brand}</span>{station.verified ? <span className="inline-flex items-center gap-1 text-forest"><ShieldCheck className="h-3.5 w-3.5" /> Verified</span> : <span>Mapped</span>}</div><h3 className="truncate text-base font-black tracking-[-.02em] text-ink">{station.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {station.district}, {station.city}</p></div>
         <span className={`shrink-0 border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${status.color}`}>{status.label}</span>
       </div>
 

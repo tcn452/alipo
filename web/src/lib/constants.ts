@@ -52,7 +52,7 @@ export const STATUS_CONFIG: Record<string, { label: string; color: string; badge
     dot: 'bg-rose-500'
   },
   unknown: {
-    label: 'Status Expired',
+    label: 'Awaiting Report',
     color: 'text-gray-500 bg-gray-50 border-gray-300',
     badge: 'bg-gray-400 text-white',
     dot: 'bg-gray-400'

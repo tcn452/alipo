@@ -9,6 +9,7 @@ interface StationMapProps {
   onSelectStation: (station: Station) => void;
   center?: [number, number];
   zoom?: number;
+  radiusKm?: number;
 }
 
 export default function StationMap({
@@ -16,11 +17,13 @@ export default function StationMap({
   selectedStation,
   onSelectStation,
   center = [-13.9626, 33.7741], // Default: Lilongwe, Malawi
-  zoom = 12
+  zoom = 12,
+  radiusKm,
 }: StationMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<{ [id: string]: any }>({});
+  const radiusCircleRef = useRef<any>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !mapContainerRef.current) return;
@@ -43,6 +46,20 @@ export default function StationMap({
         maxZoom: 19
       }).addTo(map);
 
+      if (radiusKm) {
+        radiusCircleRef.current = L.circle(center, {
+          radius: radiusKm * 1000,
+          color: '#e96a24',
+          weight: 2,
+          opacity: 0.75,
+          fillColor: '#e96a24',
+          fillOpacity: 0.045,
+          dashArray: '7 8',
+          interactive: false,
+        }).addTo(map);
+        map.fitBounds(radiusCircleRef.current.getBounds(), { padding: [24, 24] });
+      }
+
       mapInstanceRef.current = map;
     };
 
@@ -55,6 +72,34 @@ export default function StationMap({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapInstanceRef.current || selectedStation) return;
+    const updateRadius = async () => {
+      const L = (await import('leaflet')).default;
+      const map = mapInstanceRef.current;
+      if (radiusCircleRef.current) {
+        radiusCircleRef.current.remove();
+        radiusCircleRef.current = null;
+      }
+      if (radiusKm) {
+        radiusCircleRef.current = L.circle(center, {
+          radius: radiusKm * 1000,
+          color: '#e96a24',
+          weight: 2,
+          opacity: 0.75,
+          fillColor: '#e96a24',
+          fillOpacity: 0.045,
+          dashArray: '7 8',
+          interactive: false,
+        }).addTo(map);
+        map.fitBounds(radiusCircleRef.current.getBounds(), { padding: [24, 24] });
+      } else {
+        map.setView(center, zoom);
+      }
+    };
+    void updateRadius();
+  }, [center, radiusKm, selectedStation, zoom]);
 
   // Update Markers whenever stations or selection changes
   useEffect(() => {
