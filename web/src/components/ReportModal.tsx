@@ -51,7 +51,7 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
     } catch (error) { setErrorMsg(error instanceof Error ? error.message : 'Unable to submit this report.'); } finally { setIsSubmitting(false); }
   };
 
-  return <div id="report-fuel" className={`report-modal fixed inset-0 z-50 place-items-center overflow-y-auto bg-[#032e20]/75 p-3 backdrop-blur-sm ${isOpen ? 'report-modal-open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="report-title">
+  return <div id="report-fuel" className={`report-modal fixed inset-0 z-[2000] place-items-center overflow-y-auto bg-[#032e20]/75 p-3 backdrop-blur-sm ${isOpen ? 'report-modal-open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="report-title">
     <div className="my-5 w-full max-w-[620px] border border-white/20 bg-[#fbf8f1] shadow-[0_30px_100px_rgba(0,0,0,.3)]">
       <header className="flex items-start justify-between bg-forest px-5 py-5 text-white sm:px-7"><div><p className="eyebrow text-[#f5aa54]">Community update</p><h2 id="report-title" className="mt-1 text-2xl font-black tracking-[-.03em]">What&apos;s the fuel situation?</h2><p className="mt-1 text-xs text-white/60">One quick report can save someone a long trip.</p></div><a href="#" onClick={closeModal} aria-label="Close report form" className="grid h-9 w-9 place-items-center border border-white/20 text-white"><X className="h-4 w-4" /></a></header>
 
