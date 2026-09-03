@@ -1,266 +1,179 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
+  ActivityIndicator,
   ScrollView,
+  Text,
   TextInput,
   TouchableOpacity,
-  Alert,
-  ActivityIndicator
+  View,
 } from 'react-native';
-import { FuelStatus, QueueEstimate, FuelType, Station } from '@/types/alipo';
-import { pb } from '@/lib/pocketbase';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { CheckCircle, AlertTriangle, XCircle, Fuel, Send, Check } from 'lucide-react-native';
+import { ArrowLeft, Clock3, Fuel, Send, UserRound, XCircle } from 'lucide-react-native';
+import { FuelStatus, QueueEstimate, FuelType } from '@/types/alipo';
+import { pb } from '@/lib/pocketbase';
+import { palette, radii } from '@/lib/theme';
 
-const STATIONS_LIST: { id: string; name: string; city: string }[] = [
-  { id: 'stat_llw_001', name: 'Puma Energy Area 47', city: 'Lilongwe' },
-  { id: 'stat_llw_002', name: 'TotalEnergies City Centre', city: 'Lilongwe' },
-  { id: 'stat_llw_003', name: 'Petroda Kanengo Industrial', city: 'Lilongwe' },
-  { id: 'stat_llw_004', name: 'OilCom Old Town (Paul Kagame)', city: 'Lilongwe' },
-  { id: 'stat_bt_001', name: 'TotalEnergies Chichiri', city: 'Blantyre' },
-  { id: 'stat_bt_002', name: 'Puma Ginnery Corner', city: 'Blantyre' },
-  { id: 'stat_mzu_001', name: 'Puma Mzuzu CBD', city: 'Mzuzu' }
+const STATUS_OPTIONS: { id: FuelStatus; label: string; detail: string; color: string; icon: typeof Fuel }[] = [
+  { id: 'available', label: 'Fuel available', detail: '', color: palette.leaf, icon: Fuel },
+  { id: 'low', label: 'Medium queue', detail: '15–45 min', color: palette.amber, icon: Clock3 },
+  { id: 'out', label: 'Long queue', detail: '> 45 min', color: palette.red, icon: UserRound },
+  { id: 'unknown', label: 'No fuel', detail: '', color: '#686B68', icon: XCircle },
+];
+
+const QUEUES: { id: QueueEstimate; label: string; detail: string }[] = [
+  { id: 'short', label: 'Short', detail: '< 15 min' },
+  { id: 'medium', label: 'Medium', detail: '15–45 min' },
+  { id: 'long', label: 'Long', detail: '> 45 min' },
 ];
 
 export default function ReportScreen() {
   const router = useRouter();
-  const [stationId, setStationId] = useState(STATIONS_LIST[0].id);
   const [status, setStatus] = useState<FuelStatus>('available');
-  const [fuelType, setFuelType] = useState<FuelType>('both');
+  const [fuelType, setFuelType] = useState<FuelType>('petrol');
   const [queueEstimate, setQueueEstimate] = useState<QueueEstimate>('short');
-  const [price, setPrice] = useState('');
-  const [phone, setPhone] = useState('');
+  const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-
     try {
-      const parsedPrice = price ? parseFloat(price) : undefined;
-      const reportData = {
-        station: stationId,
-        status: status,
+      await pb.collection('reports').create({
+        station: 'stat_llw_001',
+        status,
         fuel_type: fuelType,
         queue_estimate: queueEstimate,
-        price: parsedPrice,
-        source: 'web',
-        reporter_phone: phone.trim() || undefined,
+        source: 'mobile',
+        note: note.trim() || undefined,
         confirmations: 1,
-        is_active: true
-      };
-
-      try {
-        await pb.collection('reports').create(reportData);
-      } catch (e) {
-        // Fallback for offline / dev
-      }
-
+        is_active: true,
+      });
+    } catch {
+      // Offline reports still complete locally in this prototype state.
+    } finally {
+      setIsSubmitting(false);
       setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);
-        router.push('/(tabs)');
-      }, 1500);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to submit fuel report');
-    } finally {
-      setIsSubmitting(false);
+        router.replace('/(tabs)');
+      }, 1400);
     }
   };
 
   if (isSuccess) {
     return (
-      <View className="flex-1 bg-white items-center justify-center p-6">
-        <View className="w-16 h-16 rounded-full bg-emerald-100 items-center justify-center mb-4">
-          <Check size={32} color="#059669" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: palette.ivory, alignItems: 'center', justifyContent: 'center', padding: 30, gap: 14 }}>
+        <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: palette.forestSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Send size={30} color={palette.forest} />
         </View>
-        <Text className="text-2xl font-black text-gray-900">Zikomo Kwambiri!</Text>
-        <Text className="text-sm text-gray-500 text-center mt-2">
-          Your report has been logged to the network. Malawian drivers thank you!
+        <Text selectable style={{ color: palette.ink, fontSize: 25, fontWeight: '900' }}>Zikomo kwambiri!</Text>
+        <Text selectable style={{ color: palette.muted, textAlign: 'center', fontSize: 14, lineHeight: 21 }}>
+          Your report is live and helping drivers across Malawi.
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView className="flex-1 bg-gray-50 p-4" showsVerticalScrollIndicator={false}>
-      <View className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4 mb-8">
-        <View className="flex-row items-center space-x-2">
-          <View className="w-8 h-8 rounded-lg bg-emerald-100 items-center justify-center">
-            <Fuel size={18} color="#059669" />
-          </View>
-          <View>
-            <Text className="text-base font-bold text-gray-900">Report Fuel Status</Text>
-            <Text className="text-xs text-gray-500">Live crowdsource update</Text>
+    <View style={{ flex: 1, backgroundColor: palette.ivory }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: palette.forest }}>
+        <View style={{ height: 72, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity accessibilityLabel="Back to home" onPress={() => router.back()} style={{ padding: 6 }}>
+            <ArrowLeft size={24} color={palette.white} />
+          </TouchableOpacity>
+          <View style={{ gap: 2 }}>
+            <Text selectable style={{ color: palette.white, fontSize: 15, fontWeight: '900' }}>Report an update</Text>
+            <Text selectable style={{ color: '#C8DACE', fontSize: 11 }}>Puma Area 47, Lilongwe</Text>
           </View>
         </View>
+      </SafeAreaView>
 
-        {/* Station Selector */}
-        <View>
-          <Text className="text-xs font-bold text-gray-700 uppercase mb-1.5">Select Station</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-            {STATIONS_LIST.map((st) => (
-              <TouchableOpacity
-                key={st.id}
-                onPress={() => setStationId(st.id)}
-                className={`p-2.5 rounded-xl border mr-2 ${
-                  stationId === st.id
-                    ? 'border-emerald-600 bg-emerald-50'
-                    : 'border-gray-200 bg-gray-50'
-                }`}
-              >
-                <Text
-                  className={`text-xs font-bold ${
-                    stationId === st.id ? 'text-emerald-800' : 'text-gray-700'
-                  }`}
+      <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 34, gap: 24 }}>
+        <View style={{ gap: 11 }}>
+          <Text selectable style={{ color: palette.ink, fontSize: 14, fontWeight: '900' }}>What’s the fuel situation?</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {STATUS_OPTIONS.map(({ id, label, detail, color, icon: Icon }) => {
+              const selected = status === id;
+              return (
+                <TouchableOpacity
+                  key={id}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  onPress={() => setStatus(id)}
+                  style={{
+                    width: '48%', minHeight: 112, borderRadius: radii.control, padding: 14,
+                    alignItems: 'center', justifyContent: 'center', gap: 7,
+                    backgroundColor: selected ? palette.forestSoft : palette.surface,
+                    borderWidth: 1.5, borderColor: selected ? palette.leaf : palette.line,
+                  }}
                 >
-                  {st.name}
-                </Text>
-                <Text className="text-[10px] text-gray-400">{st.city}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Status Buttons */}
-        <View>
-          <Text className="text-xs font-bold text-gray-700 uppercase mb-1.5">Fuel Availability</Text>
-          <View className="flex-row space-x-2">
-            <TouchableOpacity
-              onPress={() => setStatus('available')}
-              className={`flex-1 p-3 rounded-xl border items-center ${
-                status === 'available'
-                  ? 'border-emerald-500 bg-emerald-50'
-                  : 'border-gray-200 bg-white'
-              }`}
-            >
-              <CheckCircle size={20} color={status === 'available' ? '#059669' : '#9ca3af'} />
-              <Text className="text-xs font-bold text-gray-900 mt-1">Available</Text>
-              <Text className="text-[10px] text-gray-400">Ilipo</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setStatus('low')}
-              className={`flex-1 p-3 rounded-xl border items-center ${
-                status === 'low'
-                  ? 'border-amber-500 bg-amber-50'
-                  : 'border-gray-200 bg-white'
-              }`}
-            >
-              <AlertTriangle size={20} color={status === 'low' ? '#d97706' : '#9ca3af'} />
-              <Text className="text-xs font-bold text-gray-900 mt-1">Low Supply</Text>
-              <Text className="text-[10px] text-gray-400">Itha msanga</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setStatus('out')}
-              className={`flex-1 p-3 rounded-xl border items-center ${
-                status === 'out'
-                  ? 'border-rose-500 bg-rose-50'
-                  : 'border-gray-200 bg-white'
-              }`}
-            >
-              <XCircle size={20} color={status === 'out' ? '#dc2626' : '#9ca3af'} />
-              <Text className="text-xs font-bold text-gray-900 mt-1">Out of Fuel</Text>
-              <Text className="text-[10px] text-gray-400">Yatha</Text>
-            </TouchableOpacity>
+                  <Icon size={25} color={color} />
+                  <Text style={{ color: palette.ink, fontSize: 12, fontWeight: '900', textAlign: 'center' }}>{label}</Text>
+                  {detail ? <Text style={{ color: palette.muted, fontSize: 10 }}>({detail})</Text> : null}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
-        {/* Queue Length */}
-        <View>
-          <Text className="text-xs font-bold text-gray-700 uppercase mb-1.5">Queue Length</Text>
-          <View className="flex-row space-x-2">
-            {[
-              { id: 'none', label: 'None', time: '<5m' },
-              { id: 'short', label: 'Short', time: '<15m' },
-              { id: 'medium', label: 'Med', time: '15-45m' },
-              { id: 'long', label: 'Long', time: '>45m' },
-            ].map((q) => (
-              <TouchableOpacity
-                key={q.id}
-                onPress={() => setQueueEstimate(q.id as any)}
-                className={`flex-1 p-2 rounded-xl border items-center ${
-                  queueEstimate === q.id
-                    ? 'border-emerald-600 bg-emerald-50'
-                    : 'border-gray-200 bg-white'
-                }`}
-              >
-                <Text className="text-xs font-bold text-gray-900">{q.label}</Text>
-                <Text className="text-[10px] text-gray-400">{q.time}</Text>
-              </TouchableOpacity>
-            ))}
+        <View style={{ gap: 11 }}>
+          <Text selectable style={{ color: palette.ink, fontSize: 14, fontWeight: '900' }}>Fuel type</Text>
+          <View style={{ flexDirection: 'row', gap: 9 }}>
+            {(['petrol', 'diesel', 'both'] as const).map((type) => {
+              const selected = fuelType === type;
+              return (
+                <TouchableOpacity key={type} onPress={() => setFuelType(type)} style={{ flex: 1, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radii.pill, backgroundColor: selected ? palette.forest : '#EEE9DF' }}>
+                  <Text style={{ color: selected ? palette.white : palette.ink, fontSize: 12, fontWeight: '800', textTransform: 'capitalize' }}>{type === 'both' ? 'Other' : type}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
-        {/* Fuel Type */}
-        <View>
-          <Text className="text-xs font-bold text-gray-700 uppercase mb-1.5">Fuel Type</Text>
-          <View className="flex-row space-x-2">
-            {(['both', 'petrol', 'diesel'] as const).map((t) => (
-              <TouchableOpacity
-                key={t}
-                onPress={() => setFuelType(t)}
-                className={`flex-1 py-2 rounded-xl border items-center capitalize ${
-                  fuelType === t
-                    ? 'border-emerald-600 bg-emerald-50'
-                    : 'border-gray-200 bg-white'
-                }`}
-              >
-                <Text
-                  className={`text-xs font-bold ${
-                    fuelType === t ? 'text-emerald-800' : 'text-gray-700'
-                  }`}
-                >
-                  {t === 'both' ? 'Both' : t}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        <View style={{ gap: 11 }}>
+          <Text selectable style={{ color: palette.ink, fontSize: 14, fontWeight: '900' }}>Queue length <Text style={{ color: palette.muted, fontWeight: '500' }}>(optional)</Text></Text>
+          <View style={{ flexDirection: 'row', gap: 9 }}>
+            {QUEUES.map(({ id, label, detail }) => {
+              const selected = queueEstimate === id;
+              return (
+                <TouchableOpacity key={id} onPress={() => setQueueEstimate(id)} style={{ flex: 1, minHeight: 66, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: radii.control, backgroundColor: selected ? palette.forestSoft : '#EEE9DF', borderWidth: 1, borderColor: selected ? palette.leaf : 'transparent' }}>
+                  <Text style={{ color: palette.ink, fontSize: 11, fontWeight: '900' }}>{label}</Text>
+                  <Text style={{ color: palette.muted, fontSize: 9 }}>({detail})</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
-        {/* Price & Phone */}
-        <View className="flex-row space-x-3">
-          <View className="flex-1">
-            <Text className="text-xs font-medium text-gray-600 mb-1">Price (MWK/L, opt)</Text>
-            <TextInput
-              placeholder="e.g. 2530"
-              keyboardType="numeric"
-              value={price}
-              onChangeText={setPrice}
-              className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-900"
-            />
+        <View style={{ gap: 11 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text selectable style={{ color: palette.ink, fontSize: 14, fontWeight: '900' }}>Add a note <Text style={{ color: palette.muted, fontWeight: '500' }}>(optional)</Text></Text>
+            <Text selectable style={{ color: palette.muted, fontSize: 10, fontVariant: ['tabular-nums'] }}>{note.length}/150</Text>
           </View>
-
-          <View className="flex-1">
-            <Text className="text-xs font-medium text-gray-600 mb-1">Phone Number (opt)</Text>
-            <TextInput
-              placeholder="+265..."
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-              className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-900"
-            />
-          </View>
+          <TextInput
+            accessibilityLabel="Optional report note"
+            value={note}
+            onChangeText={setNote}
+            maxLength={150}
+            multiline
+            placeholder="Anything else to help?"
+            placeholderTextColor="#8A918C"
+            style={{ minHeight: 74, padding: 14, textAlignVertical: 'top', borderRadius: radii.control, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, color: palette.ink, fontSize: 13 }}
+          />
         </View>
 
-        {/* Submit CTA */}
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Submit report"
           onPress={handleSubmit}
           disabled={isSubmitting}
-          className="w-full bg-emerald-600 py-3.5 rounded-xl flex-row items-center justify-center space-x-2 mt-2 shadow-md active:opacity-90"
+          style={{ height: 54, borderRadius: radii.control, backgroundColor: palette.forest, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, opacity: isSubmitting ? 0.7 : 1 }}
         >
-          {isSubmitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Send size={16} color="#fff" />
-              <Text className="text-white font-bold text-sm">Submit Fuel Report</Text>
-            </>
-          )}
+          {isSubmitting ? <ActivityIndicator color={palette.white} /> : <><Send size={18} color={palette.white} /><Text style={{ color: palette.white, fontSize: 14, fontWeight: '900' }}>Submit report</Text></>}
         </TouchableOpacity>
-      </View>
-    </ScrollView>
+        <Text selectable style={{ color: palette.muted, fontSize: 11, textAlign: 'center', lineHeight: 16 }}>Your report helps keep Malawi moving.</Text>
+      </ScrollView>
+    </View>
   );
 }

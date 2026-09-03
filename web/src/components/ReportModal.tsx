@@ -1,308 +1,71 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Station, FuelStatus, QueueEstimate, FuelType } from '@/types/alipo';
+import { FormEvent, useEffect, useState } from 'react';
+import { Check, CheckCircle2, CircleAlert, Clock3, Send, X, XCircle } from 'lucide-react';
 import { pb } from '@/lib/pocketbase';
-import { X, CheckCircle, AlertTriangle, XCircle, Clock, Fuel, Send, Check } from 'lucide-react';
+import { FuelStatus, FuelType, QueueEstimate, Station } from '@/types/alipo';
 
-interface ReportModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  stations: Station[];
-  selectedStation?: Station | null;
-  onReportSubmitted: () => void;
-}
+interface ReportModalProps { isOpen: boolean; onClose: () => void; stations: Station[]; selectedStation?: Station | null; onReportSubmitted: () => void; }
+
+const STATUS_OPTIONS = [
+  { value: 'available', title: 'Fuel available', detail: 'Station is serving', icon: CheckCircle2 },
+  { value: 'low', title: 'Running low', detail: 'Supply may finish soon', icon: CircleAlert },
+  { value: 'out', title: 'No fuel', detail: 'Pumps are dry', icon: XCircle },
+  { value: 'unknown', title: 'Not sure', detail: 'Needs verification', icon: Clock3 },
+] as const;
 
 export function ReportModal({ isOpen, onClose, stations, selectedStation, onReportSubmitted }: ReportModalProps) {
-  const [stationId, setStationId] = useState<string>(selectedStation?.id || (stations[0]?.id || ''));
+  const [stationId, setStationId] = useState(selectedStation?.id || stations[0]?.id || '');
   const [status, setStatus] = useState<FuelStatus>('available');
   const [fuelType, setFuelType] = useState<FuelType>('both');
   const [queueEstimate, setQueueEstimate] = useState<QueueEstimate>('short');
-  const [price, setPrice] = useState<string>('');
-  const [phone, setPhone] = useState<string>('');
+  const [price, setPrice] = useState('');
+  const [phone, setPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Update stationId when selectedStation changes
-  React.useEffect(() => {
-    if (selectedStation) {
-      setStationId(selectedStation.id);
-    } else if (stations.length > 0 && !stationId) {
-      setStationId(stations[0].id);
-    }
-  }, [selectedStation, stations]);
-
+  useEffect(() => { if (selectedStation) setStationId(selectedStation.id); else if (stations.length && !stationId) setStationId(stations[0].id); }, [selectedStation, stations, stationId]);
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stationId) {
-      setErrorMsg('Please select a station.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setErrorMsg('');
-
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!stationId) return setErrorMsg('Please select a station.');
+    setIsSubmitting(true); setErrorMsg('');
+    const parsedPrice = price ? Number(price) : undefined;
     try {
-      // 1. Create Report in PocketBase
-      const parsedPrice = price ? parseFloat(price) : undefined;
-      const reportData = {
-        station: stationId,
-        status: status,
-        fuel_type: fuelType,
-        queue_estimate: queueEstimate,
-        price: parsedPrice,
-        source: 'web',
-        reporter_phone: phone.trim() || undefined,
-        confirmations: 1,
-        is_active: true
-      };
-
+      try { await pb.collection('reports').create({ station: stationId, status, fuel_type: fuelType, queue_estimate: queueEstimate, price: parsedPrice, source: 'web', reporter_phone: phone.trim() || undefined, confirmations: 1, is_active: true }); } catch {}
       try {
-        await pb.collection('reports').create(reportData);
-      } catch (err: any) {
-        console.warn('PocketBase report save (fallback local update):', err);
-      }
-
-      // 2. Update station cached state
-      try {
-        const updateData: any = {
-          latest_status: status,
-          latest_queue: queueEstimate,
-          last_reported_at: new Date().toISOString()
-        };
-        if (parsedPrice) {
-          if (fuelType === 'petrol' || fuelType === 'both') updateData.latest_price_petrol = parsedPrice;
-          if (fuelType === 'diesel') updateData.latest_price_diesel = parsedPrice;
-        }
-        await pb.collection('stations').update(stationId, updateData);
-      } catch (err) {
-        console.warn('PocketBase station update (offline/mock mode):', err);
-      }
-
+        const update: Record<string, unknown> = { latest_status: status, latest_queue: queueEstimate, last_reported_at: new Date().toISOString() };
+        if (parsedPrice && (fuelType === 'petrol' || fuelType === 'both')) update.latest_price_petrol = parsedPrice;
+        if (parsedPrice && (fuelType === 'diesel' || fuelType === 'both')) update.latest_price_diesel = parsedPrice;
+        await pb.collection('stations').update(stationId, update);
+      } catch {}
       setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
-        onReportSubmitted();
-        onClose();
-      }, 1400);
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to submit report. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+      setTimeout(() => { setSuccess(false); onReportSubmitted(); onClose(); }, 1200);
+    } catch (error) { setErrorMsg(error instanceof Error ? error.message : 'Unable to submit this report.'); } finally { setIsSubmitting(false); }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-              <Fuel className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Report Fuel Status</h2>
-              <p className="text-xs text-gray-500">Help Malawian drivers with real-time updates</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+  return <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#032e20]/75 p-3 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="report-title">
+    <div className="my-5 w-full max-w-[620px] border border-white/20 bg-[#fbf8f1] shadow-[0_30px_100px_rgba(0,0,0,.3)]">
+      <header className="flex items-start justify-between bg-forest px-5 py-5 text-white sm:px-7"><div><p className="eyebrow text-[#f5aa54]">Community update</p><h2 id="report-title" className="mt-1 text-2xl font-black tracking-[-.03em]">What&apos;s the fuel situation?</h2><p className="mt-1 text-xs text-white/60">One quick report can save someone a long trip.</p></div><button onClick={onClose} aria-label="Close report form" className="grid h-9 w-9 place-items-center border border-white/20 text-white"><X className="h-4 w-4" /></button></header>
 
-        {success ? (
-          <div className="py-12 text-center space-y-3">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto animate-bounce">
-              <Check className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900">Zikomo Kwambiri!</h3>
-            <p className="text-sm text-gray-600">Your fuel report has been logged and the live map is updated.</p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-            {errorMsg && (
-              <div className="p-3 bg-red-50 text-red-700 text-xs rounded-lg border border-red-200">
-                {errorMsg}
-              </div>
-            )}
+      {success ? <div className="px-7 py-20 text-center"><div className="mx-auto grid h-16 w-16 place-items-center bg-[#dfead7] text-forest"><Check className="h-8 w-8" /></div><h3 className="mt-5 text-2xl font-black">Zikomo kwambiri.</h3><p className="mt-2 text-sm text-muted">Your report helps keep Malawi moving.</p></div> :
+      <form onSubmit={handleSubmit} className="space-y-6 p-5 sm:p-7">
+        {errorMsg && <p className="border border-[#c9583c]/30 bg-[#f9e1d9] p-3 text-xs font-bold text-[#9d321d]">{errorMsg}</p>}
+        <label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">Fuel station</span><select value={stationId} onChange={(event) => setStationId(event.target.value)} className="h-12 w-full border border-line bg-white px-3 text-sm font-bold outline-none focus:border-forest">{stations.map((station) => <option key={station.id} value={station.id}>{station.name} — {station.district}</option>)}</select></label>
 
-            {/* Station selection */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                Select Fuel Station
-              </label>
-              <select
-                value={stationId}
-                onChange={(e) => setStationId(e.target.value)}
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              >
-                {stations.map((st) => (
-                  <option key={st.id} value={st.id}>
-                    {st.name} ({st.district}, {st.city})
-                  </option>
-                ))}
-              </select>
-            </div>
+        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">Fuel situation</legend><div className="grid grid-cols-2 gap-2">{STATUS_OPTIONS.map(({ value, title, detail, icon: Icon }) => <button key={value} type="button" onClick={() => setStatus(value)} className={`flex min-h-20 items-center gap-3 border p-3 text-left transition ${status === value ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white hover:border-[#98a493]'}`}><Icon className="h-5 w-5 shrink-0" /><span><strong className="block text-xs">{title}</strong><span className="mt-0.5 block text-[10px] opacity-65">{detail}</span></span></button>)}</div></fieldset>
 
-            {/* Fuel Status Selector */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                Current Fuel Status
-              </label>
-              <div className="grid grid-cols-3 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setStatus('available')}
-                  className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${
-                    status === 'available'
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500/20 font-bold'
-                      : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-                  }`}
-                >
-                  <CheckCircle className={`w-5 h-5 mb-1 ${status === 'available' ? 'text-emerald-600' : 'text-gray-400'}`} />
-                  <span className="text-xs">Available</span>
-                  <span className="text-[10px] text-gray-500 font-normal">Ilipo</span>
-                </button>
+        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">Fuel type</legend><div className="grid grid-cols-3 gap-2">{(['both', 'petrol', 'diesel'] as FuelType[]).map((type) => <button key={type} type="button" onClick={() => setFuelType(type)} className={`h-10 border text-xs font-black capitalize ${fuelType === type ? 'border-forest bg-forest text-white' : 'border-line bg-white text-ink'}`}>{type === 'both' ? 'Both' : type}</button>)}</div></fieldset>
 
-                <button
-                  type="button"
-                  onClick={() => setStatus('low')}
-                  className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${
-                    status === 'low'
-                      ? 'border-amber-500 bg-amber-50 text-amber-800 ring-2 ring-amber-500/20 font-bold'
-                      : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-                  }`}
-                >
-                  <AlertTriangle className={`w-5 h-5 mb-1 ${status === 'low' ? 'text-amber-600' : 'text-gray-400'}`} />
-                  <span className="text-xs">Low Supply</span>
-                  <span className="text-[10px] text-gray-500 font-normal">Itha msanga</span>
-                </button>
+        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">Queue length</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[{ id: 'none', label: 'None', time: '< 5 min' }, { id: 'short', label: 'Short', time: '< 15 min' }, { id: 'medium', label: 'Medium', time: '15–45 min' }, { id: 'long', label: 'Long', time: '> 45 min' }].map((queue) => <button key={queue.id} type="button" onClick={() => setQueueEstimate(queue.id as QueueEstimate)} className={`border px-2 py-2.5 text-center ${queueEstimate === queue.id ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><strong className="block text-xs">{queue.label}</strong><span className="text-[9px] text-muted">{queue.time}</span></button>)}</div></fieldset>
 
-                <button
-                  type="button"
-                  onClick={() => setStatus('out')}
-                  className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${
-                    status === 'out'
-                      ? 'border-rose-500 bg-rose-50 text-rose-800 ring-2 ring-rose-500/20 font-bold'
-                      : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
-                  }`}
-                >
-                  <XCircle className={`w-5 h-5 mb-1 ${status === 'out' ? 'text-rose-600' : 'text-gray-400'}`} />
-                  <span className="text-xs">Out of Fuel</span>
-                  <span className="text-[10px] text-gray-500 font-normal">Yatha</span>
-                </button>
-              </div>
-            </div>
+        <div className="grid gap-3 sm:grid-cols-2"><label><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">Price MWK/L <em className="font-normal normal-case">optional</em></span><input type="number" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="e.g. 2530" className="h-11 w-full border border-line bg-white px-3 text-sm outline-none focus:border-forest" /></label><label><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">Phone <em className="font-normal normal-case">optional</em></span><input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+265..." className="h-11 w-full border border-line bg-white px-3 text-sm outline-none focus:border-forest" /></label></div>
 
-            {/* Fuel Type */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                Fuel Type
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {(['both', 'petrol', 'diesel'] as FuelType[]).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setFuelType(t)}
-                    className={`py-2 px-3 rounded-lg border text-xs font-semibold capitalize transition-all ${
-                      fuelType === t
-                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                        : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {t === 'both' ? 'Petrol & Diesel' : t}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Queue Estimate */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                Queue Length
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { id: 'none', label: 'No Queue', time: '<5 min' },
-                  { id: 'short', label: 'Short', time: '<15 min' },
-                  { id: 'medium', label: 'Medium', time: '15-45m' },
-                  { id: 'long', label: 'Long', time: '>45 min' }
-                ].map((q) => (
-                  <button
-                    key={q.id}
-                    type="button"
-                    onClick={() => setQueueEstimate(q.id as QueueEstimate)}
-                    className={`py-2 px-1 rounded-lg border text-center transition-all ${
-                      queueEstimate === q.id
-                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800 font-bold'
-                        : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="text-xs">{q.label}</div>
-                    <div className="text-[10px] text-gray-400 font-normal">{q.time}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Price (optional) & Phone (optional) */}
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Price (MWK/Litre, optional)
-                </label>
-                <input
-                  type="number"
-                  placeholder="e.g. 2530"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Your Phone (optional)
-                </label>
-                <input
-                  type="tel"
-                  placeholder="+265..."
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-end space-x-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex items-center space-x-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-md active:scale-95"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>{isSubmitting ? 'Submitting...' : 'Submit Update'}</span>
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
+        <button type="submit" disabled={isSubmitting} className="inline-flex h-12 w-full items-center justify-center gap-2 bg-forest text-sm font-black text-white transition hover:bg-[#0b5940] disabled:opacity-50"><Send className="h-4 w-4" />{isSubmitting ? 'Submitting report...' : 'Submit report'}</button>
+        <p className="text-center text-[10px] text-muted">Reports are timestamped and cross-checked by the community.</p>
+      </form>}
     </div>
-  );
+  </div>;
 }

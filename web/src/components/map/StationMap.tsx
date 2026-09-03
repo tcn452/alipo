@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Station } from '@/types/alipo';
-import { STATUS_CONFIG } from '@/lib/constants';
 
 interface StationMapProps {
   stations: Station[];
@@ -73,44 +72,29 @@ export default function StationMap({
         if (!st.latitude || !st.longitude) return;
 
         const status = st.latest_status || 'unknown';
-        const color = status === 'available' ? '#16a34a' : status === 'low' ? '#ca8a04' : status === 'out' ? '#dc2626' : '#6b7280';
+        const color = status === 'available' ? '#398151' : status === 'low' ? '#df972f' : status === 'out' ? '#c9583c' : '#66736d';
         const isSelected = selectedStation?.id === st.id;
 
-        // Custom HTML Pin icon
         const iconHtml = `
-          <div style="
-            background-color: ${color};
-            width: ${isSelected ? '32px' : '26px'};
-            height: ${isSelected ? '32px' : '26px'};
-            border-radius: 50%;
-            border: 3px solid white;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 11px;
-            font-weight: bold;
-            transform: translate(-50%, -50%);
-          ">
-            ⛽
+          <div class="alipo-map-pin" style="width:${isSelected ? '38px' : '30px'};height:${isSelected ? '38px' : '30px'};outline:3px solid ${color};transform:translate(-50%,-50%)">
+            <img src="/alipo-mark.jpg" alt="" />
           </div>
         `;
 
         const customIcon = L.divIcon({
           className: 'custom-pin',
           html: iconHtml,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14]
+          iconSize: [isSelected ? 38 : 30, isSelected ? 38 : 30],
+          iconAnchor: [isSelected ? 19 : 15, isSelected ? 19 : 15]
         });
 
         const marker = L.marker([st.latitude, st.longitude], { icon: customIcon }).addTo(map);
 
         const popupContent = `
-          <div style="font-family: sans-serif; min-width: 160px;">
-            <strong style="font-size: 13px; color: #111827;">${st.name}</strong>
-            <div style="font-size: 11px; color: #4b5563; margin-top: 2px;">${st.district}</div>
-            <div style="margin-top: 6px; display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 10px; font-weight: bold; color: white; background-color: ${color};">
+          <div style="font-family: sans-serif; min-width: 170px;">
+            <strong style="font-size: 13px; color: #11231c;">${st.name}</strong>
+            <div style="font-size: 11px; color: #66736d; margin-top: 2px;">${st.district}</div>
+            <div style="margin-top: 8px; display: inline-block; padding: 4px 7px; font-size: 9px; letter-spacing:.08em; font-weight: 800; color: white; background-color: ${color};">
               ${status.toUpperCase()}
             </div>
           </div>
@@ -138,7 +122,7 @@ export default function StationMap({
   }, [selectedStation]);
 
   return (
-    <div className="relative w-full h-full min-h-[400px] rounded-2xl overflow-hidden border border-gray-200 shadow-inner">
+    <div className="relative h-full min-h-[610px] w-full overflow-hidden">
       <div ref={mapContainerRef} className="w-full h-full" />
     </div>
   );

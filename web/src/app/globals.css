@@ -4,34 +4,58 @@
 
 @import 'leaflet/dist/leaflet.css';
 
-:root {
-  --foreground-rgb: 17, 24, 39;
-  --background-rgb: 249, 250, 251;
-}
+:root { color-scheme: light; }
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-rgb));
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  margin: 0;
+  color: #11231c;
+  background: #f7f3e9;
+  font-family: var(--font-body), sans-serif;
+  font-feature-settings: 'ss01', 'ss03';
 }
 
-/* Custom Leaflet styling */
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+
+.eyebrow {
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 .leaflet-container {
   width: 100%;
   height: 100%;
-  z-index: 10;
-  border-radius: 0.75rem;
+  min-height: inherit;
+  z-index: 1;
+  background: #dde5d9;
+  font-family: var(--font-body), sans-serif;
 }
 
-.custom-map-pin {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
-  transition: transform 0.15s ease-in-out;
+.leaflet-control-zoom { border: 0 !important; box-shadow: 0 8px 24px rgba(6, 69, 47, .16) !important; }
+.leaflet-control-zoom a { color: #06452f !important; border-color: #d9d6cb !important; }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { border-radius: 0 !important; }
+
+.alipo-map-pin {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 5px 16px rgba(3, 46, 32, .32);
 }
 
-.custom-map-pin:hover {
-  transform: scale(1.15);
+.alipo-map-pin img { width: 100%; height: 100%; object-fit: cover; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }

@@ -1,100 +1,107 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { Clock3, Fuel, MapPin, ShieldCheck } from 'lucide-react-native';
 import { Station } from '@/types/alipo';
-import { STATUS_CONFIG, QUEUE_LABELS } from '@/lib/constants';
+import { QUEUE_LABELS, STATUS_CONFIG } from '@/lib/constants';
 import { formatTimeAgo } from '@/lib/utils';
-import { MapPin, Clock, ShieldCheck, PlusCircle } from 'lucide-react-native';
+import { palette, radii } from '@/lib/theme';
 
 interface StationCardProps {
   station: Station;
   onPress: () => void;
-  onReportPress: () => void;
+  onReportPress?: () => void;
+  compact?: boolean;
 }
 
-export function StationCard({ station, onPress, onReportPress }: StationCardProps) {
-  const statusKey = station.latest_status || 'unknown';
-  const status = STATUS_CONFIG[statusKey] || STATUS_CONFIG.unknown;
+export function StationCard({ station, onPress, compact = false }: StationCardProps) {
+  const status = STATUS_CONFIG[station.latest_status || 'unknown'] || STATUS_CONFIG.unknown;
   const queue = station.latest_queue ? QUEUE_LABELS[station.latest_queue] : null;
 
   return (
     <TouchableOpacity
-      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${station.name}`}
+      activeOpacity={0.82}
       onPress={onPress}
-      className="bg-white rounded-2xl p-4 mb-3 border border-gray-100 shadow-sm"
+      style={{
+        backgroundColor: palette.surface,
+        borderColor: palette.line,
+        borderWidth: 1,
+        borderRadius: radii.card,
+        padding: compact ? 14 : 16,
+        gap: 12,
+      }}
     >
-      <View className="flex-row items-start justify-between">
-        <View className="flex-1 pr-2">
-          <View className="flex-row items-center space-x-1.5 mb-1">
-            <View className="bg-gray-100 px-2 py-0.5 rounded-md">
-              <Text className="text-[11px] font-bold text-gray-700">{station.brand}</Text>
-            </View>
-            {station.verified && (
-              <View className="flex-row items-center space-x-1">
-                <ShieldCheck size={12} color="#059669" />
-                <Text className="text-[11px] font-semibold text-emerald-600">Verified</Text>
-              </View>
-            )}
-          </View>
-
-          <Text className="text-base font-bold text-gray-900 leading-snug">{station.name}</Text>
-
-          <View className="flex-row items-center mt-1">
-            <MapPin size={12} color="#9ca3af" />
-            <Text className="text-xs text-gray-500 ml-1">
-              {station.district}, {station.city}
-            </Text>
-          </View>
-        </View>
-
-        {/* Status Badge */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View
-          style={{ backgroundColor: status.color + '15' }}
-          className="px-2.5 py-1 rounded-full flex-row items-center space-x-1"
+          style={{
+            width: 46,
+            height: 46,
+            borderRadius: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: palette.forest,
+          }}
         >
-          <View style={{ backgroundColor: status.color }} className="w-2 h-2 rounded-full" />
-          <Text style={{ color: status.color }} className="text-xs font-bold">
-            {status.label}
+          <Fuel size={21} color={palette.white} strokeWidth={2.2} />
+        </View>
+
+        <View style={{ flex: 1, gap: 3 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Text selectable style={{ color: palette.ink, fontSize: 15, fontWeight: '800' }}>
+              {station.name.replace('Energy ', '')}
+            </Text>
+            {station.verified ? <ShieldCheck size={14} color={palette.leaf} /> : null}
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <MapPin size={12} color={palette.muted} />
+            <Text selectable style={{ color: palette.muted, fontSize: 12 }}>
+              1.2 km · {station.city}
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ alignItems: 'flex-end', gap: 5 }}>
+          <View
+            style={{
+              backgroundColor: `${status.color}16`,
+              borderRadius: radii.pill,
+              paddingHorizontal: 9,
+              paddingVertical: 5,
+            }}
+          >
+            <Text selectable style={{ color: status.color, fontSize: 10, fontWeight: '800' }}>
+              {status.label}
+            </Text>
+          </View>
+          <Text selectable style={{ color: palette.muted, fontSize: 10 }}>
+            {queue?.label || 'Queue unknown'}
           </Text>
         </View>
       </View>
 
-      {/* Details Row */}
-      <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-gray-100">
-        <View className="flex-row items-center">
-          <Clock size={12} color="#6b7280" />
-          <Text className="text-xs text-gray-600 ml-1">
-            Queue: <Text className="font-bold text-gray-900">{queue ? queue.duration : 'Unknown'}</Text>
+      {!compact ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderTopColor: palette.line,
+            borderTopWidth: 1,
+            paddingTop: 11,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Clock3 size={12} color={palette.muted} />
+            <Text selectable style={{ color: palette.muted, fontSize: 11 }}>
+              Updated {formatTimeAgo(station.last_reported_at || station.updated)}
+            </Text>
+          </View>
+          <Text selectable style={{ color: palette.forest, fontSize: 11, fontWeight: '800' }}>
+            View details
           </Text>
         </View>
-
-        <Text className="text-[11px] text-gray-400">
-          Updated {formatTimeAgo(station.last_reported_at || station.updated)}
-        </Text>
-      </View>
-
-      {/* Prices & Action */}
-      <View className="flex-row items-center justify-between mt-2.5 pt-2">
-        <View className="flex-row space-x-2">
-          {station.latest_price_petrol ? (
-            <Text className="text-[11px] font-mono text-gray-600 bg-gray-50 px-2 py-0.5 rounded">
-              P: <Text className="font-bold text-gray-900">MWK {station.latest_price_petrol}</Text>
-            </Text>
-          ) : null}
-          {station.latest_price_diesel ? (
-            <Text className="text-[11px] font-mono text-gray-600 bg-gray-50 px-2 py-0.5 rounded">
-              D: <Text className="font-bold text-gray-900">MWK {station.latest_price_diesel}</Text>
-            </Text>
-          ) : null}
-        </View>
-
-        <TouchableOpacity
-          onPress={onReportPress}
-          className="bg-emerald-50 px-2.5 py-1 rounded-lg flex-row items-center space-x-1"
-        >
-          <PlusCircle size={12} color="#047857" />
-          <Text className="text-xs font-bold text-emerald-800">Update</Text>
-        </TouchableOpacity>
-      </View>
+      ) : null}
     </TouchableOpacity>
   );
 }

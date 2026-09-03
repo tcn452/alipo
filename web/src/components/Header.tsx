@@ -1,64 +1,28 @@
 'use client';
 
-import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
-import { Fuel, PlusCircle, ShieldCheck, Phone, LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, Plus, Radio, Smartphone } from 'lucide-react';
 
-interface HeaderProps {
-  onOpenReport?: () => void;
-}
+interface HeaderProps { onOpenReport?: () => void; }
 
 export function Header({ onOpenReport }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-30 bg-emerald-800 text-white shadow-md border-b border-emerald-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Brand Logo */}
-          <Link href="/" className="flex items-center space-x-3 group">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white shadow-inner group-hover:bg-emerald-400 transition-colors">
-              <Fuel className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-1.5">
-                <span className="font-black text-xl tracking-tight text-white">Alipo</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-700/80 text-emerald-200 border border-emerald-600/50">
-                  Malawi
-                </span>
-              </div>
-              <p className="text-[11px] text-emerald-200 hidden sm:block">
-                Crowdsourced & Verified Fuel Network
-              </p>
-            </div>
-          </Link>
+    <header className="sticky top-0 z-30 h-[72px] border-b border-line bg-[#fbf8f1]/95 backdrop-blur-xl">
+      <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between px-4 sm:px-8 lg:px-12">
+        <Link href="/" className="flex items-center gap-3" aria-label="Alipo home">
+          <Image src="/alipo-mark.jpg" alt="Alipo" width={46} height={46} priority className="h-11 w-11 object-cover object-center" />
+          <div><p className="text-xl font-black leading-none tracking-[-.04em] text-forest">Alipo</p><p className="mt-1 text-[9px] font-black uppercase tracking-[.2em] text-orange">Fuel is there</p></div>
+        </Link>
 
-          {/* Quick Stats / Channels / Action Buttons */}
-          <div className="flex items-center space-x-2 sm:space-x-4">
-            {/* USSD Helper badge */}
-            <div className="hidden md:flex items-center space-x-1.5 text-xs bg-emerald-900/60 px-3 py-1.5 rounded-lg border border-emerald-700/60 text-emerald-200">
-              <Phone className="w-3.5 h-3.5 text-emerald-400" />
-              <span>USSD: <strong className="text-white">*384*265#</strong></span>
-            </div>
+        <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary navigation">
+          <Link href="/" className="inline-flex items-center gap-2 text-xs font-black text-forest"><Radio className="h-4 w-4 text-orange" /> Live map</Link>
+          <span className="inline-flex items-center gap-2 text-xs font-bold text-muted"><Smartphone className="h-4 w-4" /> USSD <strong className="font-mono text-ink">*384*265#</strong></span>
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-xs font-bold text-ink transition hover:text-forest"><LayoutDashboard className="h-4 w-4" /> Fleet portal</Link>
+        </nav>
 
-            {/* Quick Report Button */}
-            {onOpenReport && (
-              <button
-                onClick={onOpenReport}
-                className="flex items-center space-x-1.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold px-3 sm:px-4 py-2 rounded-lg transition-all shadow-sm active:scale-95 text-xs sm:text-sm"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>Report Fuel</span>
-              </button>
-            )}
-
-            {/* B2B Dashboard Link */}
-            <Link
-              href="/dashboard"
-              className="flex items-center space-x-1.5 bg-emerald-900/80 hover:bg-emerald-700 text-white font-medium px-3 sm:px-4 py-2 rounded-lg border border-emerald-600/60 transition-colors text-xs sm:text-sm"
-            >
-              <LayoutDashboard className="w-4 h-4 text-emerald-300" />
-              <span className="hidden sm:inline">Fleet Portal</span>
-            </Link>
-          </div>
+        <div className="flex items-center gap-2">
+          {onOpenReport && <button onClick={onOpenReport} className="inline-flex h-10 items-center gap-2 bg-orange px-4 text-xs font-black text-white transition hover:bg-[#d95a1c]"><Plus className="h-4 w-4" /><span className="sm:hidden">Report</span><span className="hidden sm:inline">Report fuel</span></button>}
         </div>
       </div>
     </header>
