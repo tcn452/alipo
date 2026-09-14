@@ -12,11 +12,12 @@ interface OverpassElement {
 }
 
 const MAX_RADIUS_KM = 50;
+const MIN_RADIUS_KM = 5;
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const city = params.get('city') || 'Lilongwe';
-  const radiusKm = Math.min(MAX_RADIUS_KM, Math.max(10, Number(params.get('radius')) || 10));
+  const radiusKm = Math.min(MAX_RADIUS_KM, Math.max(MIN_RADIUS_KM, Number(params.get('radius')) || MIN_RADIUS_KM));
   const latitude = Number(params.get('lat'));
   const longitude = Number(params.get('lon'));
   const allMalawi = city === 'All Cities';

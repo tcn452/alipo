@@ -74,7 +74,7 @@ export default function HomePage() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('list');
   const [loading, setLoading] = useState(false);
-  const [radiusKm, setRadiusKm] = useState(10);
+  const [radiusKm, setRadiusKm] = useState(5);
 
   const fetchStations = useCallback(async () => {
     setLoading(true);
@@ -140,7 +140,7 @@ export default function HomePage() {
                 Malawi&apos;s live fuel network. Keep Malawi moving.
               </p>
               <h1 className="mt-4 max-w-3xl font-display text-4xl leading-[.96] tracking-[-0.04em] sm:text-6xl lg:text-7xl">Fuel is there.<br />You&apos;re not alone.</h1>
-              <p className="mt-5 max-w-xl text-sm leading-6 text-white/70 sm:text-base">Find fuel, see queue times and share what you know. Built for every driver moving through Malawi.</p>
+              <p className="mt-5 max-w-xl text-sm leading-6 text-white/70 sm:text-base">Find fuel, see queue times and share what you know. Built for every drive moving in Malawi.</p>
             </div>
             <div className="grid grid-cols-3 lg:grid-cols-1">
               {[
@@ -160,7 +160,7 @@ export default function HomePage() {
             </div>
             <div className="mt-3 flex items-center justify-between gap-3">
               <div className="no-scrollbar flex gap-2 overflow-x-auto">{STATUS_FILTERS.map((filter) => <button key={filter.id} onClick={() => setSelectedStatus(filter.id)} className={`inline-flex h-9 items-center gap-2 whitespace-nowrap px-3 text-xs font-bold transition ${selectedStatus === filter.id ? 'bg-[#dfead7] text-forest' : 'text-muted hover:bg-white'}`}>{filter.id !== 'all' && <span className={`h-2 w-2 rounded-full ${filter.id === 'available' ? 'bg-[#398151]' : filter.id === 'low' ? 'bg-[#df972f]' : 'bg-[#c9583c]'}`} />}{filter.label}</button>)}</div>
-              <div className="flex items-center gap-3"><label className="flex items-center gap-2 text-xs font-bold text-muted">Radius<select aria-label="Search radius" value={radiusKm} onChange={(event) => setRadiusKm(Number(event.target.value))} disabled={selectedCity === 'All Cities'} className="h-9 border border-line bg-white px-2 text-ink disabled:opacity-40">{[10, 20, 30, 50].map((radius) => <option key={radius} value={radius}>{radius} km</option>)}</select></label><div className="flex border border-line bg-white lg:hidden"><button aria-label="Show station list" onClick={() => setActiveTab('list')} className={`p-2.5 ${activeTab === 'list' ? 'bg-forest text-white' : 'text-muted'}`}><List className="h-4 w-4" /></button><button aria-label="Show map" onClick={() => setActiveTab('map')} className={`p-2.5 ${activeTab === 'map' ? 'bg-forest text-white' : 'text-muted'}`}><MapIcon className="h-4 w-4" /></button></div></div>
+              <div className="flex items-center gap-3"><label className="flex items-center gap-2 text-xs font-bold text-muted">Radius<select aria-label="Search radius" value={radiusKm} onChange={(event) => setRadiusKm(Number(event.target.value))} disabled={selectedCity === 'All Cities'} className="h-9 border border-line bg-white px-2 text-ink disabled:opacity-40">{[5, 10, 20, 30, 50].map((radius) => <option key={radius} value={radius}>{radius} km</option>)}</select></label><div className="flex border border-line bg-white lg:hidden"><button aria-label="Show station list" onClick={() => setActiveTab('list')} className={`p-2.5 ${activeTab === 'list' ? 'bg-forest text-white' : 'text-muted'}`}><List className="h-4 w-4" /></button><button aria-label="Show map" onClick={() => setActiveTab('map')} className={`p-2.5 ${activeTab === 'map' ? 'bg-forest text-white' : 'text-muted'}`}><MapIcon className="h-4 w-4" /></button></div></div>
             </div>
           </div>
         </section>

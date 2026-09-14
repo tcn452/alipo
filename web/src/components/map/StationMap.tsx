@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { Station } from '@/types/alipo';
 import { DEFAULT_LOCATION, getBrandColor } from '@/lib/constants';
 
@@ -25,6 +26,7 @@ export default function StationMap({
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<{ [id: string]: any }>({});
   const radiusCircleRef = useRef<any>(null);
+  const [tilesLoading, setTilesLoading] = useState(true);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !mapContainerRef.current) return;
@@ -39,13 +41,21 @@ export default function StationMap({
       const map = L.map(mapContainerRef.current, {
         center: center,
         zoom: zoom,
-        zoomControl: true
+        zoomControl: true,
+        fadeAnimation: true,
+        zoomAnimation: true,
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19
+        maxZoom: 19,
+        keepBuffer: 4,
+        updateWhenIdle: true,
+        updateWhenZooming: false,
+        detectRetina: false,
       }).addTo(map);
+      tiles.on('loading', () => setTilesLoading(true));
+      tiles.on('load', () => setTilesLoading(false));
 
       if (radiusKm) {
         radiusCircleRef.current = L.circle(center, {
@@ -94,7 +104,7 @@ export default function StationMap({
           dashArray: '7 8',
           interactive: false,
         }).addTo(map);
-        map.fitBounds(radiusCircleRef.current.getBounds(), { padding: [24, 24] });
+        map.flyToBounds(radiusCircleRef.current.getBounds(), { padding: [24, 24], duration: 0.45 });
       } else {
         map.setView(center, zoom);
       }
@@ -172,6 +182,12 @@ export default function StationMap({
   return (
     <div className="relative h-full min-h-[610px] w-full overflow-hidden">
       <div ref={mapContainerRef} className="w-full h-full" />
+      <div className={`pointer-events-none absolute inset-0 z-[500] grid place-items-center bg-[#dce2d6]/90 transition-opacity duration-200 ${tilesLoading ? 'opacity-100' : 'opacity-0'}`} aria-hidden={!tilesLoading}>
+        <div className="border border-forest/15 bg-ivory px-5 py-4 text-center shadow-lg">
+          <RefreshCw className="mx-auto h-5 w-5 animate-spin text-orange" />
+          <p className="mt-2 text-xs font-black uppercase tracking-[.12em] text-forest">Loading map</p>
+        </div>
+      </div>
     </div>
   );
 }
