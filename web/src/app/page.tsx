@@ -55,7 +55,7 @@ function stationFromSupabase(row: Record<string, unknown>): Station | null {
 async function loadSupabaseStations(city: string, latitude: number, longitude: number, radiusKm: number) {
   if (!isSupabaseConfigured) return [];
   const query = city === 'All Cities'
-    ? supabase.from('stations').select('id,name,brand,location,district,city,verified,fuel_types,latest_status,latest_queue,last_reported_at,updated_at').eq('active', true)
+    ? supabase.rpc('all_stations')
     : supabase.rpc('nearby_stations', { p_latitude: latitude, p_longitude: longitude, p_radius_km: radiusKm });
   const { data, error } = await query;
   if (error) throw error;
@@ -168,7 +168,7 @@ export default function HomePage() {
         <section className="mx-auto grid max-w-[1440px] lg:min-h-[720px] lg:grid-cols-[440px_minmax(0,1fr)]">
           <aside className={`${activeTab === 'map' ? 'hidden lg:block' : 'block'} border-r border-line bg-[#f8f5ee] px-4 py-6 sm:px-8 lg:px-7`}>
             <div className="mb-3 flex items-end justify-between"><div><p className="eyebrow text-orange">{selectedCity === 'All Cities' ? 'Malawi coverage' : `${selectedCity} coverage`}</p><h2 className="mt-1 text-xl font-black tracking-[-.03em]">{filteredStations.length} fuel stations{selectedCity !== 'All Cities' ? ` within ${radiusKm} km` : ''}</h2></div><button onClick={fetchStations} className="inline-flex items-center gap-2 text-xs font-bold text-forest"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button></div>
-            <p className="mb-5 border-l-2 border-orange pl-3 text-[11px] leading-4 text-muted">Mapped with OpenStreetMap. Live availability appears after an Alipo community report.</p>
+            <p className="mb-5 border-l-2 border-orange pl-3 text-[11px] leading-4 text-muted">Live Alipo station data. OpenStreetMap is used only where Alipo coverage is unavailable.</p>
             {filteredStations.length ? <div className="space-y-3 lg:max-h-[650px] lg:overflow-y-auto lg:pr-2">{filteredStations.map((station, index) => <StationCard key={station.id} station={station} stationNumber={index + 1} isSelected={selectedStation?.id === station.id} onSelectStation={setSelectedStation} onReportClick={(item) => { setSelectedStation(item); setIsReportModalOpen(true); }} />)}</div> : <div className="border border-line bg-white p-8 text-center"><Info className="mx-auto h-6 w-6 text-muted" /><p className="mt-3 font-bold">No matching stations</p><p className="mt-1 text-sm text-muted">Try another area or fuel status.</p></div>}
           </aside>
 
