@@ -5,6 +5,11 @@ import { RefreshCw } from 'lucide-react';
 import { Station } from '@/types/alipo';
 import { DEFAULT_LOCATION, getBrandColor } from '@/lib/constants';
 
+function hasRenderableSize(map: any) {
+  const size = map.getSize();
+  return size.x > 0 && size.y > 0;
+}
+
 interface StationMapProps {
   stations: Station[];
   selectedStation: Station | null;
@@ -68,7 +73,7 @@ export default function StationMap({
           dashArray: '7 8',
           interactive: false,
         }).addTo(map);
-        map.fitBounds(radiusCircleRef.current.getBounds(), { padding: [24, 24] });
+        if (hasRenderableSize(map)) map.fitBounds(radiusCircleRef.current.getBounds(), { padding: [24, 24] });
       }
 
       mapInstanceRef.current = map;
@@ -82,6 +87,19 @@ export default function StationMap({
         mapInstanceRef.current = null;
       }
     };
+  }, []);
+
+  useEffect(() => {
+    const container = mapContainerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      const map = mapInstanceRef.current;
+      if (!map || !hasRenderableSize(map)) return;
+      map.invalidateSize({ pan: false });
+      if (radiusCircleRef.current) map.fitBounds(radiusCircleRef.current.getBounds(), { padding: [24, 24] });
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -104,9 +122,9 @@ export default function StationMap({
           dashArray: '7 8',
           interactive: false,
         }).addTo(map);
-        map.flyToBounds(radiusCircleRef.current.getBounds(), { padding: [24, 24], duration: 0.45 });
+        if (hasRenderableSize(map)) map.flyToBounds(radiusCircleRef.current.getBounds(), { padding: [24, 24], duration: 0.45 });
       } else {
-        map.setView(center, zoom);
+        if (hasRenderableSize(map)) map.setView(center, zoom);
       }
     };
     void updateRadius();
@@ -172,7 +190,7 @@ export default function StationMap({
 
   // Center on selected station
   useEffect(() => {
-    if (selectedStation && mapInstanceRef.current && selectedStation.latitude && selectedStation.longitude) {
+    if (selectedStation && mapInstanceRef.current && Number.isFinite(selectedStation.latitude) && Number.isFinite(selectedStation.longitude) && hasRenderableSize(mapInstanceRef.current)) {
       mapInstanceRef.current.flyTo([selectedStation.latitude, selectedStation.longitude], 14, {
         duration: 0.8
       });
