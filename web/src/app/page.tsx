@@ -10,35 +10,13 @@ import { CITIES, CITY_CENTERS, DEFAULT_CITY } from '@/lib/constants';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { Station } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
-import { calculateDistanceKm } from '@/lib/utils';
 
 const StationMap = dynamic(() => import('@/components/map/StationMap'), {
   ssr: false,
   loading: () => <div className="grid min-h-[540px] place-items-center bg-[#e7eadf] text-forest"><div className="text-center"><RefreshCw className="mx-auto mb-3 h-6 w-6 animate-spin" /><p className="text-sm font-bold">Loading the live fuel map</p></div></div>,
 });
 
-const SEED_TIME = Date.parse('2026-09-03T12:00:00+02:00');
-const seededReportTime = (minutesAgo: number) => new Date(SEED_TIME - minutesAgo * 60000).toISOString();
-
-const SEED_FALLBACK: Station[] = [
-  { id: '00000000-0000-4000-8000-000000000101', name: 'Puma Area 47', brand: 'Puma', latitude: -13.9572, longitude: 33.7915, district: 'Area 47', city: 'Lilongwe', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'available', latest_queue: 'short', last_reported_at: seededReportTime(15) },
-  { id: '00000000-0000-4000-8000-000000000102', name: 'TotalEnergies City Centre', brand: 'TotalEnergies', latitude: -13.9712, longitude: 33.7845, district: 'City Centre', city: 'Lilongwe', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'available', latest_queue: 'medium', last_reported_at: seededReportTime(35) },
-  { id: '00000000-0000-4000-8000-000000000103', name: 'Petroda Kanengo Industrial', brand: 'Petroda', latitude: -13.8821, longitude: 33.7741, district: 'Kanengo', city: 'Lilongwe', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'low', latest_queue: 'long', last_reported_at: seededReportTime(50) },
-  { id: '00000000-0000-4000-8000-000000000104', name: 'OilCom Old Town', brand: 'OilCom', latitude: -13.9845, longitude: 33.7689, district: 'Old Town', city: 'Lilongwe', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'out', latest_queue: 'none', last_reported_at: seededReportTime(120) },
-  { id: '00000000-0000-4000-8000-000000000201', name: 'TotalEnergies Chichiri', brand: 'TotalEnergies', latitude: -15.7981, longitude: 35.0254, district: 'Chichiri', city: 'Blantyre', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'available', latest_queue: 'short', last_reported_at: seededReportTime(25) },
-  { id: '00000000-0000-4000-8000-000000000202', name: 'Puma Ginnery Corner', brand: 'Puma', latitude: -15.7925, longitude: 35.0118, district: 'Ginnery Corner', city: 'Blantyre', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'low', latest_queue: 'long', last_reported_at: seededReportTime(60) },
-];
-
 const STATUS_FILTERS = [{ id: 'all', label: 'All reports' }, { id: 'available', label: 'Available' }, { id: 'low', label: 'Low supply' }, { id: 'out', label: 'No fuel' }];
-
-function mergeStations(reported: Station[], mapped: Station[]) {
-  const merged = [...reported];
-  for (const candidate of mapped) {
-    const duplicate = merged.some((station) => calculateDistanceKm(station.latitude, station.longitude, candidate.latitude, candidate.longitude) < 0.12);
-    if (!duplicate) merged.push(candidate);
-  }
-  return merged;
-}
 
 function stationFromSupabase(row: Record<string, unknown>): Station | null {
   let latitude = typeof row.latitude === 'number' ? row.latitude : undefined;
@@ -88,7 +66,7 @@ async function loadSupabaseStations(city: string, latitude: number, longitude: n
 }
 
 export default function HomePage() {
-  const [stations, setStations] = useState<Station[]>(SEED_FALLBACK);
+  const [stations, setStations] = useState<Station[]>([]);
   const [selectedCity, setSelectedCity] = useState(DEFAULT_CITY);
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -100,21 +78,29 @@ export default function HomePage() {
 
   const fetchStations = useCallback(async () => {
     setLoading(true);
-    const [latitude, longitude] = CITY_CENTERS[selectedCity];
-    const mappedUrl = `/api/stations?city=${encodeURIComponent(selectedCity)}&lat=${latitude}&lon=${longitude}&radius=${radiusKm}`;
-    const [reportedResult, mappedResult] = await Promise.allSettled([
-      loadSupabaseStations(selectedCity, latitude, longitude, radiusKm),
-      fetch(mappedUrl).then(async (response) => {
+    try {
+      const [latitude, longitude] = CITY_CENTERS[selectedCity];
+      const reported = await loadSupabaseStations(selectedCity, latitude, longitude, radiusKm).catch(() => []);
+
+      if (reported.length) {
+        setStations(reported);
+        setSelectedStation(null);
+        return;
+      }
+
+      const mappedUrl = `/api/stations?city=${encodeURIComponent(selectedCity)}&lat=${latitude}&lon=${longitude}&radius=${radiusKm}`;
+      const mapped = await fetch(mappedUrl)
+        .then(async (response) => {
         if (!response.ok) throw new Error('Mapped stations unavailable');
         return response.json() as Promise<{ stations: Station[] }>;
-      }),
-    ]);
-    const fallback = selectedCity === 'All Cities' ? SEED_FALLBACK : SEED_FALLBACK.filter((station) => station.city === selectedCity);
-    const reported = reportedResult.status === 'fulfilled' && reportedResult.value.length ? reportedResult.value : fallback;
-    const mapped = mappedResult.status === 'fulfilled' ? mappedResult.value.stations : [];
-    setStations(mergeStations(reported, mapped));
-    setSelectedStation(null);
-    setLoading(false);
+        })
+        .then((result) => result.stations)
+        .catch(() => []);
+      setStations(mapped);
+      setSelectedStation(null);
+    } finally {
+      setLoading(false);
+    }
   }, [radiusKm, selectedCity]);
 
   useEffect(() => {
