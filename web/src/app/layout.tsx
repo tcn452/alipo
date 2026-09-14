@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Archivo_Black, DM_Sans, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
+import { PwaRegistration } from '@/components/PwaRegistration';
 
 const bodyFont = DM_Sans({ subsets: ['latin'], variable: '--font-body' });
 const displayFont = Archivo_Black({ weight: '400', subsets: ['latin'], variable: '--font-display' });
@@ -10,6 +11,9 @@ export const metadata: Metadata = {
   title: 'Alipo — Malawi Fuel Availability Network',
   description: 'Real-time crowdsourced and station-verified fuel availability tracker for Lilongwe, Blantyre, Mzuzu and Malawi.',
   manifest: '/manifest.json',
+  applicationName: 'Alipo',
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Alipo' },
+  icons: { icon: '/icon.svg', apple: '/apple-touch-icon.png' },
 };
 
 export const viewport = {
@@ -30,6 +34,7 @@ export default function RootLayout({
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
       </head>
       <body className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} min-h-screen antialiased`}>
+        <PwaRegistration />
         {children}
       </body>
     </html>

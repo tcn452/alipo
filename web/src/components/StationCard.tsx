@@ -18,9 +18,8 @@ export function StationCard({ station, onReportClick, onSelectStation, isSelecte
         <span className={`shrink-0 border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${status.color}`}>{status.label}</span>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 border-y border-line py-3 text-xs">
-        <div><span className="block text-[10px] uppercase tracking-wide text-muted">Petrol</span><strong className="mt-0.5 block font-mono">{station.latest_price_petrol ? `K${station.latest_price_petrol.toLocaleString()}` : '—'}</strong></div>
-        <div><span className="block text-[10px] uppercase tracking-wide text-muted">Diesel</span><strong className="mt-0.5 block font-mono">{station.latest_price_diesel ? `K${station.latest_price_diesel.toLocaleString()}` : '—'}</strong></div>
+      <div className="mt-4 grid grid-cols-2 border-y border-line py-3 text-xs">
+        <div><span className="block text-[10px] uppercase tracking-wide text-muted">Fuel types</span><strong className="mt-0.5 block capitalize">{station.fuel_types.join(' & ')}</strong></div>
         <div><span className="block text-[10px] uppercase tracking-wide text-muted">Queue</span><strong className="mt-0.5 flex items-center gap-1"><Clock3 className="h-3 w-3" /> {queue?.duration || 'Unknown'}</strong></div>
       </div>
 

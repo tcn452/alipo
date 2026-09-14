@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Station } from '@/types/alipo';
+import { DEFAULT_LOCATION } from '@/lib/constants';
 
 interface StationMapProps {
   stations: Station[];
@@ -16,7 +17,7 @@ export default function StationMap({
   stations,
   selectedStation,
   onSelectStation,
-  center = [-13.9626, 33.7741], // Default: Lilongwe, Malawi
+  center = DEFAULT_LOCATION,
   zoom = 12,
   radiusKm,
 }: StationMapProps) {

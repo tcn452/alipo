@@ -9,6 +9,21 @@ export const CITIES = [
   'Salima'
 ] as const;
 
+export const CITY_CENTERS: Record<string, [number, number]> = {
+  'All Cities': [-13.2543, 34.3015],
+  Lilongwe: [-13.9626, 33.7741],
+  Blantyre: [-15.7861, 35.0058],
+  Mzuzu: [-11.4589, 34.0152],
+  Zomba: [-15.3833, 35.3333],
+  Kasungu: [-13.0333, 33.4833],
+  Mangochi: [-14.4781, 35.2645],
+  Salima: [-13.7804, 34.4587],
+};
+
+// Initial map location when the user has not shared device location.
+export const DEFAULT_CITY = 'Lilongwe';
+export const DEFAULT_LOCATION: [number, number] = CITY_CENTERS[DEFAULT_CITY];
+
 export const BRANDS = [
   'All Brands',
   'Puma',

@@ -19,7 +19,6 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
   const [status, setStatus] = useState<FuelStatus>('available');
   const [fuelType, setFuelType] = useState<FuelType>('both');
   const [queueEstimate, setQueueEstimate] = useState<QueueEstimate>('short');
-  const [price, setPrice] = useState('');
   const [phone, setPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -37,13 +36,10 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
     event.preventDefault();
     if (!stationId) return setErrorMsg('Please select a station.');
     setIsSubmitting(true); setErrorMsg('');
-    const parsedPrice = price ? Number(price) : undefined;
     try {
-      try { await pb.collection('reports').create({ station: stationId, status, fuel_type: fuelType, queue_estimate: queueEstimate, price: parsedPrice, source: 'web', reporter_phone: phone.trim() || undefined, confirmations: 1, is_active: true }); } catch {}
+      try { await pb.collection('reports').create({ station: stationId, status, fuel_type: fuelType, queue_estimate: queueEstimate, source: 'web', reporter_phone: phone.trim() || undefined, confirmations: 1, is_active: true }); } catch {}
       try {
         const update: Record<string, unknown> = { latest_status: status, latest_queue: queueEstimate, last_reported_at: new Date().toISOString() };
-        if (parsedPrice && (fuelType === 'petrol' || fuelType === 'both')) update.latest_price_petrol = parsedPrice;
-        if (parsedPrice && (fuelType === 'diesel' || fuelType === 'both')) update.latest_price_diesel = parsedPrice;
         await pb.collection('stations').update(stationId, update);
       } catch {}
       setSuccess(true);
@@ -66,7 +62,7 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
 
         <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">Queue length</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[{ id: 'none', label: 'None', time: '< 5 min' }, { id: 'short', label: 'Short', time: '< 15 min' }, { id: 'medium', label: 'Medium', time: '15–45 min' }, { id: 'long', label: 'Long', time: '> 45 min' }].map((queue) => <button key={queue.id} type="button" onClick={() => setQueueEstimate(queue.id as QueueEstimate)} className={`border px-2 py-2.5 text-center ${queueEstimate === queue.id ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><strong className="block text-xs">{queue.label}</strong><span className="text-[9px] text-muted">{queue.time}</span></button>)}</div></fieldset>
 
-        <div className="grid gap-3 sm:grid-cols-2"><label><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">Price MWK/L <em className="font-normal normal-case">optional</em></span><input type="number" value={price} onChange={(event) => setPrice(event.target.value)} placeholder="e.g. 2530" className="h-11 w-full border border-line bg-white px-3 text-sm outline-none focus:border-forest" /></label><label><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">Phone <em className="font-normal normal-case">optional</em></span><input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+265..." className="h-11 w-full border border-line bg-white px-3 text-sm outline-none focus:border-forest" /></label></div>
+        <label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">Phone <em className="font-normal normal-case">optional</em></span><input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+265..." className="h-11 w-full border border-line bg-white px-3 text-sm outline-none focus:border-forest" /></label>
 
         <button type="submit" disabled={isSubmitting} className="inline-flex h-12 w-full items-center justify-center gap-2 bg-forest text-sm font-black text-white transition hover:bg-[#0b5940] disabled:opacity-50"><Send className="h-4 w-4" />{isSubmitting ? 'Submitting report...' : 'Submit report'}</button>
         <p className="text-center text-[10px] text-muted">Reports are timestamped and cross-checked by the community.</p>
