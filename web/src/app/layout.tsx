@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   applicationName: 'Alipo',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Alipo' },
-  icons: { icon: '/icon.svg', apple: '/apple-touch-icon.png' },
+  icons: { icon: '/favicon.png', apple: '/apple-touch-icon.png' },
 };
 
 export const viewport = {
@@ -31,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/favicon.png" type="image/png" />
       </head>
       <body className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} min-h-screen antialiased`}>
         <PwaRegistration />

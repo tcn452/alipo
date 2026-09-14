@@ -27,18 +27,18 @@ services:
       context: ./web
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_POCKETBASE_URL: ${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8090}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-https://xsnkzaweqeeocsdduhoi.supabase.co}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
     container_name: alipo_web
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8090}
-      - POCKETBASE_INTERNAL_URL=http://pocketbase:8090
-    depends_on:
-      pocketbase:
-        condition: service_healthy
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://xsnkzaweqeeocsdduhoi.supabase.co}
+      - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
+      - SUPABASE_SECRET_KEY=${SUPABASE_SECRET_KEY:-}
+      - REPORTER_HASH_SALT=${REPORTER_HASH_SALT:-}
 
 volumes:
   pb_data:

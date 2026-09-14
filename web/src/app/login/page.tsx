@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Fuel, Phone, KeyRound, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
-import { pb } from '@/lib/pocketbase';
+import { Fuel, Phone, KeyRound, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,7 +13,6 @@ export default function LoginPage() {
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [devCode, setDevCode] = useState<string | null>(null);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,26 +25,12 @@ export default function LoginPage() {
     setErrorMsg('');
 
     try {
-      // Call custom OTP hook on PocketBase
-      const response = await fetch(`${process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://localhost:8090'}/api/auth/otp/request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone })
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send OTP code');
-      }
-
-      if (data.dev_code) {
-        setDevCode(data.dev_code);
-      }
+      if (!isSupabaseConfigured) throw new Error('Supabase is not configured for this deployment.');
+      const { error } = await supabase.auth.signInWithOtp({ phone, options: { shouldCreateUser: true } });
+      if (error) throw error;
       setStep('otp');
-    } catch (err: any) {
-      // Fallback in dev if PocketBase is offline
-      setDevCode('123456');
-      setStep('otp');
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Unable to send the verification code.');
     } finally {
       setIsLoading(false);
     }
@@ -62,21 +47,11 @@ export default function LoginPage() {
     setErrorMsg('');
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://localhost:8090'}/api/auth/otp/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code: otp })
-      });
-
-      const data = await response.json();
-      if (response.ok && data.token) {
-        pb.authStore.save(data.token, data.record);
-      }
-      // Redirect to fleet dashboard
+      const { error } = await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' });
+      if (error) throw error;
       router.push('/dashboard');
-    } catch (err: any) {
-      // Allow fallback login in dev
-      router.push('/dashboard');
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Unable to verify the code.');
     } finally {
       setIsLoading(false);
     }
@@ -104,19 +79,6 @@ export default function LoginPage() {
           {errorMsg && (
             <div className="mb-4 p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
               {errorMsg}
-            </div>
-          )}
-
-          {devCode && (
-            <div className="mb-4 p-3 bg-emerald-50 text-emerald-800 text-xs rounded-xl border border-emerald-200 flex items-center justify-between">
-              <span>Test Sandbox OTP: <strong className="font-mono">{devCode}</strong></span>
-              <button
-                type="button"
-                onClick={() => setOtp(devCode)}
-                className="text-xs font-bold text-emerald-700 underline ml-2"
-              >
-                Auto-fill
-              </button>
             </div>
           )}
 

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Station } from '@/types/alipo';
-import { DEFAULT_LOCATION } from '@/lib/constants';
+import { DEFAULT_LOCATION, getBrandColor } from '@/lib/constants';
 
 interface StationMapProps {
   stations: Station[];
@@ -114,31 +114,33 @@ export default function StationMap({
       Object.values(markersRef.current).forEach((marker: any) => marker.remove());
       markersRef.current = {};
 
-      stations.forEach((st) => {
+      stations.forEach((st, index) => {
         if (!st.latitude || !st.longitude) return;
 
         const status = st.latest_status || 'unknown';
         const color = status === 'available' ? '#398151' : status === 'low' ? '#df972f' : status === 'out' ? '#c9583c' : '#66736d';
+        const brandColor = getBrandColor(st.brand);
         const isSelected = selectedStation?.id === st.id;
+        const stationNumber = index + 1;
 
         const iconHtml = `
-          <div class="alipo-map-pin" style="width:${isSelected ? '38px' : '30px'};height:${isSelected ? '38px' : '30px'};outline:3px solid ${color};transform:translate(-50%,-50%)">
-            <img src="/alipo-mark.jpg" alt="" />
+          <div class="alipo-numbered-pin" title="${stationNumber}. ${st.name}" style="width:${isSelected ? '30px' : '24px'};height:${isSelected ? '30px' : '24px'};background:${brandColor};border-color:${isSelected ? color : '#fff'};transform:translate(-50%,-50%)">
+            ${stationNumber}
           </div>
         `;
 
         const customIcon = L.divIcon({
           className: 'custom-pin',
           html: iconHtml,
-          iconSize: [isSelected ? 38 : 30, isSelected ? 38 : 30],
-          iconAnchor: [isSelected ? 19 : 15, isSelected ? 19 : 15]
+          iconSize: [isSelected ? 30 : 24, isSelected ? 30 : 24],
+          iconAnchor: [isSelected ? 15 : 12, isSelected ? 15 : 12]
         });
 
         const marker = L.marker([st.latitude, st.longitude], { icon: customIcon }).addTo(map);
 
         const popupContent = `
           <div style="font-family: sans-serif; min-width: 170px;">
-            <strong style="font-size: 13px; color: #11231c;">${st.name}</strong>
+            <strong style="font-size: 13px; color: #11231c;">${stationNumber}. ${st.name}</strong>
             <div style="font-size: 11px; color: #66736d; margin-top: 2px;">${st.district}</div>
             <div style="margin-top: 8px; display: inline-block; padding: 4px 7px; font-size: 9px; letter-spacing:.08em; font-weight: 800; color: white; background-color: ${color};">
               ${status.toUpperCase()}

@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { Check, CheckCircle2, CircleAlert, Clock3, Send, X, XCircle } from 'lucide-react';
-import { pb } from '@/lib/pocketbase';
 import { FuelStatus, FuelType, QueueEstimate, Station } from '@/types/alipo';
 
 interface ReportModalProps { isOpen: boolean; onClose: () => void; stations: Station[]; selectedStation?: Station | null; onReportSubmitted: () => void; }
@@ -11,7 +10,6 @@ const STATUS_OPTIONS = [
   { value: 'available', title: 'Fuel available', detail: 'Station is serving', icon: CheckCircle2 },
   { value: 'low', title: 'Running low', detail: 'Supply may finish soon', icon: CircleAlert },
   { value: 'out', title: 'No fuel', detail: 'Pumps are dry', icon: XCircle },
-  { value: 'unknown', title: 'Not sure', detail: 'Needs verification', icon: Clock3 },
 ] as const;
 
 export function ReportModal({ isOpen, onClose, stations, selectedStation, onReportSubmitted }: ReportModalProps) {
@@ -37,11 +35,15 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
     if (!stationId) return setErrorMsg('Please select a station.');
     setIsSubmitting(true); setErrorMsg('');
     try {
-      try { await pb.collection('reports').create({ station: stationId, status, fuel_type: fuelType, queue_estimate: queueEstimate, source: 'web', reporter_phone: phone.trim() || undefined, confirmations: 1, is_active: true }); } catch {}
-      try {
-        const update: Record<string, unknown> = { latest_status: status, latest_queue: queueEstimate, last_reported_at: new Date().toISOString() };
-        await pb.collection('stations').update(stationId, update);
-      } catch {}
+      const station = stations.find((item) => item.id === stationId);
+      if (!station) throw new Error('Please select a valid station.');
+      const response = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ station, status, fuel_type: fuelType, queue_estimate: queueEstimate, phone: phone.trim() || undefined }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'Unable to submit this report.');
       setSuccess(true);
       setTimeout(() => { setSuccess(false); onReportSubmitted(); closeModal(); }, 1200);
     } catch (error) { setErrorMsg(error instanceof Error ? error.message : 'Unable to submit this report.'); } finally { setIsSubmitting(false); }

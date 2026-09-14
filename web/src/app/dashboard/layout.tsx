@@ -3,8 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Fuel, LayoutDashboard, Truck, Compass, FileText, ArrowLeft, LogOut, ShieldAlert } from 'lucide-react';
-import { logoutUser } from '@/lib/pocketbase';
+import { Fuel, LayoutDashboard, Truck, Compass, FileText, ArrowLeft, LogOut } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export default function DashboardLayout({
   children,
@@ -73,7 +73,7 @@ export default function DashboardLayout({
 
           <Link
             href="/login"
-            onClick={() => logoutUser()}
+            onClick={() => { void supabase.auth.signOut(); }}
             className="flex items-center space-x-2 text-rose-400 hover:text-rose-300 transition-colors py-1 px-2"
           >
             <LogOut className="w-3.5 h-3.5" />

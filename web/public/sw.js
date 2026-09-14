@@ -1,5 +1,5 @@
-const CACHE_NAME = 'alipo-shell-v1';
-const APP_SHELL = ['/', '/manifest.json', '/icon.svg', '/icon-192.png', '/icon-512.png'];
+const CACHE_NAME = 'alipo-shell-v2';
+const APP_SHELL = ['/', '/manifest.json', '/favicon.png', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));

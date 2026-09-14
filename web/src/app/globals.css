@@ -56,6 +56,19 @@ button { cursor: pointer; }
 
 .alipo-map-pin img { width: 100%; height: 100%; object-fit: cover; }
 
+.alipo-numbered-pin {
+  display: grid;
+  place-items: center;
+  border: 2px solid white;
+  border-radius: 9999px;
+  color: white;
+  font-family: var(--font-body), sans-serif;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 2px 7px rgba(3, 46, 32, .3);
+}
+
 .report-modal { display: none; }
 .report-modal-open,
 .report-modal:target { display: grid; }

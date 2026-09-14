@@ -34,6 +34,26 @@ export const BRANDS = [
   'Engen'
 ] as const;
 
+const BRAND_COLORS: Record<string, string> = {
+  puma: '#ef3f36',
+  total: '#ed1b2f',
+  totalenergies: '#e3268e',
+  petroda: '#1464a5',
+  oilcom: '#f28c28',
+  'mount meru': '#2f7d32',
+  engen: '#005daa',
+  meru: '#2f7d32',
+};
+
+const BRAND_COLOR_PALETTE = ['#6d4c9f', '#087e8b', '#c65d21', '#447a3c', '#a23b72', '#2f6690', '#9a6b16', '#5f6f52'];
+
+export function getBrandColor(brand: string) {
+  const normalized = brand.trim().toLowerCase();
+  if (BRAND_COLORS[normalized]) return BRAND_COLORS[normalized];
+  const hash = Array.from(normalized || 'independent').reduce((total, character) => ((total * 31) + character.charCodeAt(0)) >>> 0, 0);
+  return BRAND_COLOR_PALETTE[hash % BRAND_COLOR_PALETTE.length];
+}
+
 export const FUEL_TYPES = [
   { label: 'All Types', value: 'all' },
   { label: 'Petrol', value: 'petrol' },

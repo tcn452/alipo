@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { ArrowRight, CheckCircle2, CircleAlert, Clock3, Info, List, Map as MapIcon, MapPin, RefreshCw, Search, ShieldCheck, XCircle } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
 import { CITIES, CITY_CENTERS, DEFAULT_CITY } from '@/lib/constants';
-import { pb } from '@/lib/pocketbase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { Station } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
 import { calculateDistanceKm } from '@/lib/utils';
@@ -21,12 +21,12 @@ const SEED_TIME = Date.parse('2026-09-03T12:00:00+02:00');
 const seededReportTime = (minutesAgo: number) => new Date(SEED_TIME - minutesAgo * 60000).toISOString();
 
 const SEED_FALLBACK: Station[] = [
-  { id: 'stat_llw_001', name: 'Puma Area 47', brand: 'Puma', latitude: -13.9572, longitude: 33.7915, district: 'Area 47', city: 'Lilongwe', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'available', latest_queue: 'short', latest_price_petrol: 2530, latest_price_diesel: 2734, last_reported_at: seededReportTime(15) },
-  { id: 'stat_llw_002', name: 'TotalEnergies City Centre', brand: 'Total', latitude: -13.9712, longitude: 33.7845, district: 'City Centre', city: 'Lilongwe', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'available', latest_queue: 'medium', latest_price_petrol: 2530, latest_price_diesel: 2734, last_reported_at: seededReportTime(35) },
-  { id: 'stat_llw_003', name: 'Petroda Kanengo Industrial', brand: 'Petroda', latitude: -13.8821, longitude: 33.7741, district: 'Kanengo', city: 'Lilongwe', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'low', latest_queue: 'long', latest_price_petrol: 2530, latest_price_diesel: 2734, last_reported_at: seededReportTime(50) },
-  { id: 'stat_llw_004', name: 'OilCom Old Town', brand: 'OilCom', latitude: -13.9845, longitude: 33.7689, district: 'Old Town', city: 'Lilongwe', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'out', latest_queue: 'none', latest_price_petrol: 2530, latest_price_diesel: 2734, last_reported_at: seededReportTime(120) },
-  { id: 'stat_bt_001', name: 'TotalEnergies Chichiri', brand: 'Total', latitude: -15.7981, longitude: 35.0254, district: 'Chichiri', city: 'Blantyre', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'available', latest_queue: 'short', latest_price_petrol: 2530, latest_price_diesel: 2734, last_reported_at: seededReportTime(25) },
-  { id: 'stat_bt_002', name: 'Puma Ginnery Corner', brand: 'Puma', latitude: -15.7925, longitude: 35.0118, district: 'Ginnery Corner', city: 'Blantyre', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'low', latest_queue: 'long', latest_price_petrol: 2530, latest_price_diesel: 2734, last_reported_at: seededReportTime(60) },
+  { id: '00000000-0000-4000-8000-000000000101', name: 'Puma Area 47', brand: 'Puma', latitude: -13.9572, longitude: 33.7915, district: 'Area 47', city: 'Lilongwe', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'available', latest_queue: 'short', last_reported_at: seededReportTime(15) },
+  { id: '00000000-0000-4000-8000-000000000102', name: 'TotalEnergies City Centre', brand: 'TotalEnergies', latitude: -13.9712, longitude: 33.7845, district: 'City Centre', city: 'Lilongwe', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'available', latest_queue: 'medium', last_reported_at: seededReportTime(35) },
+  { id: '00000000-0000-4000-8000-000000000103', name: 'Petroda Kanengo Industrial', brand: 'Petroda', latitude: -13.8821, longitude: 33.7741, district: 'Kanengo', city: 'Lilongwe', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'low', latest_queue: 'long', last_reported_at: seededReportTime(50) },
+  { id: '00000000-0000-4000-8000-000000000104', name: 'OilCom Old Town', brand: 'OilCom', latitude: -13.9845, longitude: 33.7689, district: 'Old Town', city: 'Lilongwe', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'out', latest_queue: 'none', last_reported_at: seededReportTime(120) },
+  { id: '00000000-0000-4000-8000-000000000201', name: 'TotalEnergies Chichiri', brand: 'TotalEnergies', latitude: -15.7981, longitude: 35.0254, district: 'Chichiri', city: 'Blantyre', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'available', latest_queue: 'short', last_reported_at: seededReportTime(25) },
+  { id: '00000000-0000-4000-8000-000000000202', name: 'Puma Ginnery Corner', brand: 'Puma', latitude: -15.7925, longitude: 35.0118, district: 'Ginnery Corner', city: 'Blantyre', verified: true, fuel_types: ['petrol', 'diesel'], latest_status: 'low', latest_queue: 'long', last_reported_at: seededReportTime(60) },
 ];
 
 const STATUS_FILTERS = [{ id: 'all', label: 'All reports' }, { id: 'available', label: 'Available' }, { id: 'low', label: 'Low supply' }, { id: 'out', label: 'No fuel' }];
@@ -40,6 +40,53 @@ function mergeStations(reported: Station[], mapped: Station[]) {
   return merged;
 }
 
+function stationFromSupabase(row: Record<string, unknown>): Station | null {
+  let latitude = typeof row.latitude === 'number' ? row.latitude : undefined;
+  let longitude = typeof row.longitude === 'number' ? row.longitude : undefined;
+  let location = row.location;
+  if (typeof location === 'string') {
+    try { location = JSON.parse(location); } catch { location = null; }
+  }
+  if ((!latitude || !longitude) && location && typeof location === 'object' && 'coordinates' in location) {
+    const coordinates = (location as { coordinates?: unknown }).coordinates;
+    if (Array.isArray(coordinates) && coordinates.length >= 2) {
+      longitude = Number(coordinates[0]);
+      latitude = Number(coordinates[1]);
+    }
+  }
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+  return {
+    id: String(row.id),
+    name: String(row.name || 'Fuel station'),
+    brand: String(row.brand || 'Independent'),
+    latitude: latitude as number,
+    longitude: longitude as number,
+    district: String(row.district || row.city || 'Malawi'),
+    city: String(row.city || 'Malawi'),
+    verified: Boolean(row.verified),
+    fuel_types: Array.isArray(row.fuel_types) ? row.fuel_types.filter((type): type is 'petrol' | 'diesel' => type === 'petrol' || type === 'diesel') : ['petrol', 'diesel'],
+    latest_status: row.latest_status as Station['latest_status'],
+    latest_queue: row.latest_queue as Station['latest_queue'],
+    last_reported_at: row.last_reported_at ? String(row.last_reported_at) : undefined,
+    updated: row.updated_at ? String(row.updated_at) : undefined,
+    distance_km: typeof row.distance_km === 'number' ? row.distance_km : undefined,
+  };
+}
+
+async function loadSupabaseStations(city: string, latitude: number, longitude: number, radiusKm: number) {
+  if (!isSupabaseConfigured) return [];
+  const query = city === 'All Cities'
+    ? supabase.from('stations').select('id,name,brand,location,district,city,verified,fuel_types,latest_status,latest_queue,last_reported_at,updated_at').eq('active', true)
+    : supabase.rpc('nearby_stations', { p_latitude: latitude, p_longitude: longitude, p_radius_km: radiusKm });
+  const { data, error } = await query;
+  if (error) throw error;
+  return ((data || []) as Record<string, unknown>[]).flatMap((row) => {
+    const station = stationFromSupabase(row);
+    return station ? [station] : [];
+  });
+}
+
 export default function HomePage() {
   const [stations, setStations] = useState<Station[]>(SEED_FALLBACK);
   const [selectedCity, setSelectedCity] = useState(DEFAULT_CITY);
@@ -51,39 +98,37 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [radiusKm, setRadiusKm] = useState(10);
 
-  const fetchStations = async () => {
+  const fetchStations = useCallback(async () => {
     setLoading(true);
     const [latitude, longitude] = CITY_CENTERS[selectedCity];
     const mappedUrl = `/api/stations?city=${encodeURIComponent(selectedCity)}&lat=${latitude}&lon=${longitude}&radius=${radiusKm}`;
     const [reportedResult, mappedResult] = await Promise.allSettled([
-      pb.collection('stations').getFullList({ sort: '-updated' }),
+      loadSupabaseStations(selectedCity, latitude, longitude, radiusKm),
       fetch(mappedUrl).then(async (response) => {
         if (!response.ok) throw new Error('Mapped stations unavailable');
         return response.json() as Promise<{ stations: Station[] }>;
       }),
     ]);
-    const allReported = reportedResult.status === 'fulfilled' && reportedResult.value.length ? reportedResult.value as unknown as Station[] : SEED_FALLBACK;
-    const reported = selectedCity === 'All Cities' ? allReported : allReported.filter((station) => station.city === selectedCity);
+    const fallback = selectedCity === 'All Cities' ? SEED_FALLBACK : SEED_FALLBACK.filter((station) => station.city === selectedCity);
+    const reported = reportedResult.status === 'fulfilled' && reportedResult.value.length ? reportedResult.value : fallback;
     const mapped = mappedResult.status === 'fulfilled' ? mappedResult.value.stations : [];
     setStations(mergeStations(reported, mapped));
     setSelectedStation(null);
     setLoading(false);
-  };
+  }, [radiusKm, selectedCity]);
 
   useEffect(() => {
     void fetchStations();
-  }, [selectedCity, radiusKm]);
+  }, [fetchStations]);
 
   useEffect(() => {
-    try {
-      void pb.collection('stations').subscribe('*', (event) => {
-        if (event.action === 'create') setStations((current) => [event.record as unknown as Station, ...current]);
-        if (event.action === 'update') setStations((current) => current.map((station) => station.id === event.record.id ? event.record as unknown as Station : station));
-        if (event.action === 'delete') setStations((current) => current.filter((station) => station.id !== event.record.id));
-      }).catch(() => {});
-    } catch {}
-    return () => { try { void pb.collection('stations').unsubscribe('*').catch(() => {}); } catch {} };
-  }, []);
+    if (!isSupabaseConfigured) return;
+    const channel = supabase
+      .channel('public-stations')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stations' }, () => { void fetchStations(); })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [fetchStations]);
 
   const filteredStations = useMemo(() => stations.filter((station) => {
     if (selectedStatus !== 'all' && station.latest_status !== selectedStatus) return false;
@@ -138,7 +183,7 @@ export default function HomePage() {
           <aside className={`${activeTab === 'map' ? 'hidden lg:block' : 'block'} border-r border-line bg-[#f8f5ee] px-4 py-6 sm:px-8 lg:px-7`}>
             <div className="mb-3 flex items-end justify-between"><div><p className="eyebrow text-orange">{selectedCity === 'All Cities' ? 'Malawi coverage' : `${selectedCity} coverage`}</p><h2 className="mt-1 text-xl font-black tracking-[-.03em]">{filteredStations.length} fuel stations{selectedCity !== 'All Cities' ? ` within ${radiusKm} km` : ''}</h2></div><button onClick={fetchStations} className="inline-flex items-center gap-2 text-xs font-bold text-forest"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button></div>
             <p className="mb-5 border-l-2 border-orange pl-3 text-[11px] leading-4 text-muted">Mapped with OpenStreetMap. Live availability appears after an Alipo community report.</p>
-            {filteredStations.length ? <div className="space-y-3 lg:max-h-[650px] lg:overflow-y-auto lg:pr-2">{filteredStations.map((station) => <StationCard key={station.id} station={station} isSelected={selectedStation?.id === station.id} onSelectStation={setSelectedStation} onReportClick={(item) => { setSelectedStation(item); setIsReportModalOpen(true); }} />)}</div> : <div className="border border-line bg-white p-8 text-center"><Info className="mx-auto h-6 w-6 text-muted" /><p className="mt-3 font-bold">No matching stations</p><p className="mt-1 text-sm text-muted">Try another area or fuel status.</p></div>}
+            {filteredStations.length ? <div className="space-y-3 lg:max-h-[650px] lg:overflow-y-auto lg:pr-2">{filteredStations.map((station, index) => <StationCard key={station.id} station={station} stationNumber={index + 1} isSelected={selectedStation?.id === station.id} onSelectStation={setSelectedStation} onReportClick={(item) => { setSelectedStation(item); setIsReportModalOpen(true); }} />)}</div> : <div className="border border-line bg-white p-8 text-center"><Info className="mx-auto h-6 w-6 text-muted" /><p className="mt-3 font-bold">No matching stations</p><p className="mt-1 text-sm text-muted">Try another area or fuel status.</p></div>}
           </aside>
 
           <div className={`${activeTab === 'list' ? 'hidden lg:block' : 'block'} relative min-h-[610px] bg-[#dce2d6] lg:min-h-[720px]`}>
