@@ -1,0 +1,2 @@
+-- Production station records are imported from OpenStreetMap by the Alipo sync job.
+-- Keep local seed data deterministic and add test fixtures here when required.
