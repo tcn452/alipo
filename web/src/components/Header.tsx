@@ -23,7 +23,7 @@ export function Header({ onOpenReport }: HeaderProps) {
         </nav>
 
         <div className="flex items-center gap-2">
-          <div className="flex h-10 items-center border border-line bg-white p-1" aria-label="Language"><Languages className="mx-1 h-3.5 w-3.5 text-muted" /><button type="button" onClick={() => setLanguage('en')} aria-pressed={language === 'en'} className={`h-7 px-2 text-[10px] font-black ${language === 'en' ? 'bg-forest text-white' : 'text-muted'}`}>EN</button><button type="button" onClick={() => setLanguage('ny')} aria-pressed={language === 'ny'} className={`h-7 px-2 text-[10px] font-black ${language === 'ny' ? 'bg-forest text-white' : 'text-muted'}`}>NY</button></div>
+          <div className="flex h-10 items-center border border-line bg-white p-1" aria-label="Language"><Languages className="mx-1 h-3.5 w-3.5 text-muted" /><button type="button" onClick={() => setLanguage('en')} aria-pressed={language === 'en'} className={`h-7 px-2 text-[10px] font-black ${language === 'en' ? 'bg-forest text-white' : 'text-muted'}`}>EN</button><button type="button" onClick={() => setLanguage('ny')} aria-pressed={language === 'ny'} className={`h-7 px-2 text-[10px] font-black ${language === 'ny' ? 'bg-forest text-white' : 'text-muted'}`}>CH</button></div>
           {onOpenReport && <a href="#report-fuel" onClick={onOpenReport} className="inline-flex h-10 items-center gap-2 bg-orange px-3 text-xs font-black text-white transition hover:bg-[#d95a1c] sm:px-4"><Plus className="h-4 w-4" /><span className="sm:hidden">{t('Report')}</span><span className="hidden sm:inline">{t('Report fuel')}</span></a>}
         </div>
       </div>
