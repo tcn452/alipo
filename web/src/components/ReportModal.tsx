@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { Check, CheckCircle2, CircleAlert, MapPinOff, Send, X, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, CircleAlert, MapPinOff, PencilLine, Send, X, XCircle } from 'lucide-react';
 import { FuelStatus, FuelType, QueueEstimate, Station } from '@/types/alipo';
 import { useLanguage } from '@/lib/i18n';
 
@@ -17,12 +17,14 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
   const { t } = useLanguage();
   const [stationId, setStationId] = useState(selectedStation?.id || stations[0]?.id || '');
   const [status, setStatus] = useState<FuelStatus>('available');
-  const [reportType, setReportType] = useState<'fuel' | 'missing_station'>('fuel');
+  const [reportType, setReportType] = useState<'fuel' | 'missing_station' | 'name_suggestion'>('fuel');
+  const [suggestedName, setSuggestedName] = useState('');
   const [fuelType, setFuelType] = useState<FuelType>('both');
   const [queueEstimate, setQueueEstimate] = useState<QueueEstimate>('short');
   const [phone, setPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('Your report helps keep Malawi moving.');
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => { if (selectedStation) setStationId(selectedStation.id); else if (stations.length && !stationId) setStationId(stations[0].id); }, [selectedStation, stations, stationId]);
@@ -43,10 +45,13 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
       const response = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ station, report_type: reportType, status, fuel_type: fuelType, queue_estimate: queueEstimate, phone: phone.trim() || undefined }),
+        body: JSON.stringify({ station, report_type: reportType, status, fuel_type: fuelType, queue_estimate: queueEstimate, phone: phone.trim() || undefined, suggested_name: suggestedName.trim() || undefined }),
       });
-      const result = await response.json() as { error?: string };
+      const result = await response.json() as { error?: string; votes?: number; confirmed?: boolean };
       if (!response.ok) throw new Error(t('Unable to submit this report.'));
+      setSuccessMessage(reportType === 'name_suggestion'
+        ? result.confirmed ? 'The station name is now confirmed and updated.' : 'Suggestion saved. One more matching vote will confirm this name.'
+        : 'Your report helps keep Malawi moving.');
       setSuccess(true);
       setTimeout(() => { setSuccess(false); onReportSubmitted(); closeModal(); }, 1200);
     } catch (error) { setErrorMsg(error instanceof Error ? error.message : t('Unable to submit this report.')); } finally { setIsSubmitting(false); }
@@ -56,20 +61,20 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
     <div className="my-5 w-full max-w-[620px] border border-white/20 bg-[#fbf8f1] shadow-[0_30px_100px_rgba(0,0,0,.3)]">
       <header className="flex items-start justify-between bg-forest px-5 py-5 text-white sm:px-7"><div><p className="eyebrow text-[#f5aa54]">{t('Community update')}</p><h2 id="report-title" className="mt-1 text-2xl font-black tracking-[-.03em]">{t("What's the fuel situation?")}</h2><p className="mt-1 text-xs text-white/60">{t('One quick report can save someone a long trip.')}</p></div><a href="#" onClick={closeModal} aria-label={t('Close report form')} className="grid h-9 w-9 place-items-center border border-white/20 text-white"><X className="h-4 w-4" /></a></header>
 
-      {success ? <div className="px-7 py-20 text-center"><div className="mx-auto grid h-16 w-16 place-items-center bg-[#dfead7] text-forest"><Check className="h-8 w-8" /></div><h3 className="mt-5 text-2xl font-black">Zikomo kwambiri.</h3><p className="mt-2 text-sm text-muted">{t('Your report helps keep Malawi moving.')}</p></div> :
+      {success ? <div className="px-7 py-20 text-center"><div className="mx-auto grid h-16 w-16 place-items-center bg-[#dfead7] text-forest"><Check className="h-8 w-8" /></div><h3 className="mt-5 text-2xl font-black">Zikomo kwambiri.</h3><p className="mt-2 text-sm text-muted">{t(successMessage)}</p></div> :
       <form onSubmit={handleSubmit} className="space-y-6 p-5 sm:p-7">
         {errorMsg && <p className="border border-[#c9583c]/30 bg-[#f9e1d9] p-3 text-xs font-bold text-[#9d321d]">{errorMsg}</p>}
         <label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Fuel station')}</span><select value={stationId} onChange={(event) => setStationId(event.target.value)} className="h-12 w-full border border-line bg-white px-3 text-sm font-bold outline-none focus:border-forest">{stations.map((station) => <option key={station.id} value={station.id}>{station.name} — {station.district}</option>)}</select></label>
 
-        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Report type')}</legend><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setReportType('fuel')} className={`min-h-16 border p-3 text-left ${reportType === 'fuel' ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><strong className="block text-xs">{t('Fuel update')}</strong><span className="mt-1 block text-[10px] opacity-65">{t('Availability and queue')}</span></button><button type="button" onClick={() => setReportType('missing_station')} className={`flex min-h-16 items-center gap-2 border p-3 text-left ${reportType === 'missing_station' ? 'border-[#c9583c] bg-[#f9e1d9] text-[#9d321d]' : 'border-line bg-white'}`}><MapPinOff className="h-5 w-5" /><span><strong className="block text-xs">{t('Station does not exist')}</strong><span className="mt-1 block text-[10px] opacity-65">{t('Flag an incorrect location')}</span></span></button></div></fieldset>
+        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Report type')}</legend><div className="grid gap-2 sm:grid-cols-3"><button type="button" onClick={() => setReportType('fuel')} className={`min-h-16 border p-3 text-left ${reportType === 'fuel' ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><strong className="block text-xs">{t('Fuel update')}</strong><span className="mt-1 block text-[10px] opacity-65">{t('Availability and queue')}</span></button><button type="button" onClick={() => setReportType('name_suggestion')} className={`flex min-h-16 items-center gap-2 border p-3 text-left ${reportType === 'name_suggestion' ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><PencilLine className="h-5 w-5" /><span><strong className="block text-xs">{t('Correct station name')}</strong><span className="mt-1 block text-[10px] opacity-65">{t('Suggest the right name')}</span></span></button><button type="button" onClick={() => setReportType('missing_station')} className={`flex min-h-16 items-center gap-2 border p-3 text-left ${reportType === 'missing_station' ? 'border-[#c9583c] bg-[#f9e1d9] text-[#9d321d]' : 'border-line bg-white'}`}><MapPinOff className="h-5 w-5" /><span><strong className="block text-xs">{t('Station does not exist')}</strong><span className="mt-1 block text-[10px] opacity-65">{t('Flag an incorrect location')}</span></span></button></div></fieldset>
 
         {reportType === 'fuel' ? <><fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Fuel situation')}</legend><div className="grid grid-cols-2 gap-2">{STATUS_OPTIONS.map(({ value, title, detail, icon: Icon }) => <button key={value} type="button" onClick={() => setStatus(value)} className={`flex min-h-20 items-center gap-3 border p-3 text-left transition ${status === value ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white hover:border-[#98a493]'}`}><Icon className="h-5 w-5 shrink-0" /><span><strong className="block text-xs">{t(title)}</strong><span className="mt-0.5 block text-[10px] opacity-65">{t(detail)}</span></span></button>)}</div></fieldset>
 
         <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Fuel type')}</legend><div className="grid grid-cols-3 gap-2">{(['both', 'petrol', 'diesel'] as FuelType[]).map((type) => <button key={type} type="button" onClick={() => setFuelType(type)} className={`h-10 border text-xs font-black capitalize ${fuelType === type ? 'border-forest bg-forest text-white' : 'border-line bg-white text-ink'}`}>{t(type === 'both' ? 'Both' : type === 'petrol' ? 'Petrol' : 'Diesel')}</button>)}</div></fieldset>
 
-        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Queue length')}</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[{ id: 'none', label: 'None', time: '< 5 min' }, { id: 'short', label: 'Short', time: '< 15 min' }, { id: 'medium', label: 'Medium', time: '15–45 min' }, { id: 'long', label: 'Long', time: '> 45 min' }].map((queue) => <button key={queue.id} type="button" onClick={() => setQueueEstimate(queue.id as QueueEstimate)} className={`border px-2 py-2.5 text-center ${queueEstimate === queue.id ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><strong className="block text-xs">{t(queue.label)}</strong><span className="text-[9px] text-muted">{queue.time}</span></button>)}</div></fieldset></> : <p className="border-l-2 border-[#c9583c] bg-[#f9e1d9]/60 px-4 py-3 text-xs leading-5 text-[#713021]">{t('Five reports from different phone numbers will remove this station from public results. Reports are retained for review.')}</p>}
+        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Queue length')}</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[{ id: 'none', label: 'None', time: '< 5 min' }, { id: 'short', label: 'Short', time: '< 15 min' }, { id: 'medium', label: 'Medium', time: '15–45 min' }, { id: 'long', label: 'Long', time: '> 45 min' }].map((queue) => <button key={queue.id} type="button" onClick={() => setQueueEstimate(queue.id as QueueEstimate)} className={`border px-2 py-2.5 text-center ${queueEstimate === queue.id ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><strong className="block text-xs">{t(queue.label)}</strong><span className="text-[9px] text-muted">{queue.time}</span></button>)}</div></fieldset></> : reportType === 'name_suggestion' ? <div className="space-y-3"><label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Suggested station name')}</span><input value={suggestedName} onChange={(event) => setSuggestedName(event.target.value)} required minLength={2} maxLength={200} placeholder={t('Enter the correct station name')} className="h-12 w-full border border-line bg-white px-3 text-sm font-bold outline-none focus:border-forest" /></label><p className="border-l-2 border-forest bg-[#e5eddc] px-4 py-3 text-xs leading-5 text-forest">{t('Two matching suggestions from different phone numbers will confirm and update the station name.')}</p></div> : <p className="border-l-2 border-[#c9583c] bg-[#f9e1d9]/60 px-4 py-3 text-xs leading-5 text-[#713021]">{t('Five reports from different phone numbers will remove this station from public results. Reports are retained for review.')}</p>}
 
-        <label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Phone')} <em className="font-normal normal-case">{t(reportType === 'missing_station' ? 'required to prevent duplicate reports' : 'optional')}</em></span><input type="tel" required={reportType === 'missing_station'} value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+265..." className="h-11 w-full border border-line bg-white px-3 text-sm outline-none focus:border-forest" /></label>
+        <label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Phone')} <em className="font-normal normal-case">{t(reportType === 'fuel' ? 'optional' : 'required to prevent duplicate reports')}</em></span><input type="tel" required={reportType !== 'fuel'} value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+265..." className="h-11 w-full border border-line bg-white px-3 text-sm outline-none focus:border-forest" /></label>
 
         <button type="submit" disabled={isSubmitting} className="inline-flex h-12 w-full items-center justify-center gap-2 bg-forest text-sm font-black text-white transition hover:bg-[#0b5940] disabled:opacity-50"><Send className="h-4 w-4" />{t(isSubmitting ? 'Submitting report...' : 'Submit report')}</button>
         <p className="text-center text-[10px] text-muted">{t('Reports are timestamped and cross-checked by the community.')}</p>

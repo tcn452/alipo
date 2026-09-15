@@ -18,7 +18,8 @@ interface ReportRequest {
     city?: string;
     fuel_types?: string[];
   };
-  report_type?: 'fuel' | 'missing_station';
+  report_type?: 'fuel' | 'missing_station' | 'name_suggestion';
+  suggested_name?: string;
   status?: string;
   fuel_type?: string;
   queue_estimate?: string;
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
     return Response.json({ error: 'A valid station is required.' }, { status: 400 });
   }
   const reportType = body.report_type || 'fuel';
-  if (reportType !== 'fuel' && reportType !== 'missing_station') {
+  if (reportType !== 'fuel' && reportType !== 'missing_station' && reportType !== 'name_suggestion') {
     return Response.json({ error: 'The report type is invalid.' }, { status: 400 });
   }
   if (reportType === 'fuel' && (!body.status || !STATUSES.has(body.status) || !body.fuel_type || !FUEL_TYPES.has(body.fuel_type))) {
@@ -81,6 +82,29 @@ export async function POST(request: Request) {
   const reporterPhoneHash = phone && hashSalt
     ? createHash('sha256').update(`${hashSalt}:${phone}`).digest('hex')
     : null;
+  if (reportType === 'name_suggestion') {
+    const suggestedName = body.suggested_name?.trim().replace(/\s+/g, ' ');
+    if (!phone) return Response.json({ error: 'A phone number is required to suggest a station name.' }, { status: 400 });
+    const normalizedPhone = phone.replace(/\D/g, '');
+    if (normalizedPhone.length < 7 || normalizedPhone.length > 15) return Response.json({ error: 'Enter a valid phone number.' }, { status: 400 });
+    if (!suggestedName || suggestedName.length < 2 || suggestedName.length > 200) {
+      return Response.json({ error: 'Enter a station name between 2 and 200 characters.' }, { status: 400 });
+    }
+    const fingerprintSalt = hashSalt || process.env.SUPABASE_SECRET_KEY;
+    if (!fingerprintSalt) return Response.json({ error: 'Station name suggestions are temporarily unavailable.' }, { status: 503 });
+    const reporterFingerprint = createHash('sha256').update(`${fingerprintSalt}:${normalizedPhone}`).digest('hex');
+    const normalizedName = suggestedName.toLocaleLowerCase('en').replace(/[^a-z0-9]+/g, ' ').trim();
+    if (normalizedName.length < 2) return Response.json({ error: 'Enter a valid station name.' }, { status: 400 });
+    const { data, error: suggestionError } = await supabase.rpc('submit_station_name_suggestion', {
+      p_station_id: stationId,
+      p_suggested_name: suggestedName,
+      p_normalized_name: normalizedName,
+      p_reporter_fingerprint: reporterFingerprint,
+    }).single();
+    if (suggestionError) return Response.json({ error: 'Unable to save the station name suggestion.' }, { status: 502 });
+    const result = data as { vote_count: number; confirmed: boolean };
+    return Response.json({ success: true, station_id: stationId, votes: result.vote_count, confirmed: result.confirmed }, { status: 201 });
+  }
   if (reportType === 'missing_station') {
     if (!phone) return Response.json({ error: 'A phone number is required for a missing-station report.' }, { status: 400 });
     const fingerprintSalt = hashSalt || process.env.SUPABASE_SECRET_KEY;
