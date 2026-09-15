@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { ArrowRight, Bell, CheckCircle2, CircleAlert, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, RefreshCw, Search, XCircle } from 'lucide-react';
+import { ArrowRight, Bell, CheckCircle2, CircleAlert, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, RefreshCw, Search, ThumbsUp, XCircle } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
@@ -12,6 +12,7 @@ import { Station } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
 import { HowItWorks } from '@/components/HowItWorks';
+import { NameSuggestions } from '@/components/NameSuggestions';
 
 const StationMap = dynamic(() => import('@/components/map/StationMap'), {
   ssr: false,
@@ -112,6 +113,7 @@ export default function HomePage() {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
+  const [isNameSuggestionsOpen, setIsNameSuggestionsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('list');
   const [loading, setLoading] = useState(false);
   const [radiusKm, setRadiusKm] = useState(5);
@@ -360,6 +362,7 @@ export default function HomePage() {
         <section className="mx-auto grid max-w-[1440px] grid-cols-[minmax(0,1fr)] lg:min-h-[720px] lg:grid-cols-[440px_minmax(0,1fr)]">
           <aside className={`${activeTab === 'map' ? 'hidden lg:block' : 'block'} min-w-0 max-w-full border-r border-line bg-[#f8f5ee] px-4 py-6 sm:px-8 lg:px-7`}>
             <div className="mb-3 flex items-end justify-between"><div><p className="eyebrow text-orange">{selectedCity === 'All Cities' ? t('Malawi coverage') : selectedCity === 'My Location' ? t('Near your location') : t('{city} coverage', { city: selectedCity })}</p><h2 className="mt-1 text-xl font-black tracking-[-.03em]">{t(selectedCity !== 'All Cities' ? '{count} fuel stations within {radius} km' : '{count} fuel stations', { count: filteredStations.length, radius: radiusKm })}</h2></div><button onClick={fetchStations} className="inline-flex items-center gap-2 text-xs font-bold text-forest"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> {t('Refresh')}</button></div>
+            <button type="button" onClick={() => setIsNameSuggestionsOpen(true)} className="mb-4 flex min-h-11 w-full items-center justify-between border border-forest/20 bg-[#e5eddc] px-4 text-left text-xs font-black text-forest transition hover:border-forest"><span className="inline-flex items-center gap-2"><ThumbsUp className="h-4 w-4" /> {t('Vote on suggested names')}</span><ArrowRight className="h-4 w-4" /></button>
             <p className="mb-5 border-l-2 border-orange pl-3 text-[11px] leading-4 text-muted">{t('Live Alipo station data. OpenStreetMap is used only where Alipo coverage is unavailable.')}</p>
             {loading ? <div role="status" className="border border-line bg-white p-8 text-center"><RefreshCw className="mx-auto h-6 w-6 animate-spin text-orange" /><p className="mt-3 font-bold">{t('Loading fuel stations')}</p><p className="mt-1 text-sm text-muted">{t('Checking live Alipo coverage…')}</p></div> : filteredStations.length ? <div className="min-w-0 space-y-3 lg:max-h-[650px] lg:overflow-y-auto lg:pr-2">{filteredStations.map((station, index) => <StationCard key={station.id} station={station} stationNumber={index + 1} isSelected={selectedStation?.id === station.id} onSelectStation={setSelectedStation} onReportClick={(item) => { setSelectedStation(item); setIsReportModalOpen(true); }} />)}</div> : <div className="border border-line bg-white p-8 text-center"><Info className="mx-auto h-6 w-6 text-muted" /><p className="mt-3 font-bold">{t('No matching stations')}</p><p className="mt-1 text-sm text-muted">{t('Try another area or fuel status.')}</p></div>}
           </aside>
@@ -380,6 +383,7 @@ export default function HomePage() {
       <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo</strong> — Find fuel. Share updates. Keep Malawi moving.</p><p><a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · Created by <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
       <ReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} stations={stations} selectedStation={selectedStation} onReportSubmitted={fetchStations} />
       <HowItWorks isOpen={isHowItWorksOpen} onClose={closeHowItWorks} />
+      <NameSuggestions isOpen={isNameSuggestionsOpen} onClose={() => setIsNameSuggestionsOpen(false)} onConfirmed={fetchStations} />
     </div>
   );
 }
