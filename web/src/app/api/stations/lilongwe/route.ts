@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 import { Station } from '@/types/alipo';
+import { classifyStationBrand } from '@/lib/constants';
 
 const LILONGWE = { latitude: -13.9626, longitude: 33.7741 };
 const RADIUS_METRES = 20_000;
@@ -67,7 +68,7 @@ const loadLilongweFuelStations = unstable_cache(async () => {
     if (distanceKm(LILONGWE, { latitude, longitude }) > RADIUS_METRES / 1000) return [];
     const tags = element.tags || {};
     const name = tags.name || tags.brand || tags.operator || 'Fuel station';
-    const brand = tags.brand || tags.operator || (name === 'Fuel station' ? 'Independent' : name.split(' ')[0]);
+    const brand = classifyStationBrand(name, tags.brand || tags.operator);
     const fuelTypes: ('petrol' | 'diesel')[] = [];
     if (tags['fuel:octane_91'] !== 'no' || tags['fuel:octane_95'] !== 'no' || !Object.keys(tags).some((key) => key.startsWith('fuel:'))) fuelTypes.push('petrol');
     if (tags['fuel:diesel'] !== 'no') fuelTypes.push('diesel');

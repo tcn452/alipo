@@ -47,6 +47,27 @@ const BRAND_COLORS: Record<string, string> = {
 
 const BRAND_COLOR_PALETTE = ['#6d4c9f', '#087e8b', '#c65d21', '#447a3c', '#a23b72', '#2f6690', '#9a6b16', '#5f6f52'];
 
+const BRAND_PATTERNS: ReadonlyArray<{ brand: string; pattern: RegExp }> = [
+  { brand: 'TotalEnergies', pattern: /\btotal(?:\s*energies)?\b/i },
+  { brand: 'Mount Meru', pattern: /\b(?:mount|mt)\.?\s+m(?:e{1,2})ru\b|\bmeru\b/i },
+  { brand: 'Puma', pattern: /\bpuma\b/i },
+  { brand: 'Petroda', pattern: /\bpetroda\b/i },
+  { brand: 'OilCom', pattern: /\boil\s*com\b/i },
+  { brand: 'Engen', pattern: /\bengen\b/i },
+  { brand: 'BP', pattern: /\bbp\b/i },
+  { brand: 'Shell', pattern: /\bshell\b/i },
+  { brand: 'Caltex', pattern: /\bcaltex\b/i },
+];
+
+export function classifyStationBrand(name: string, reportedBrand?: string) {
+  const evidence = `${name} ${reportedBrand || ''}`;
+  const matched = BRAND_PATTERNS.find(({ pattern }) => pattern.test(evidence));
+  if (matched) return matched.brand;
+  const cleaned = reportedBrand?.trim();
+  if (cleaned && !/^(independent|unknown|fuel\s*station)$/i.test(cleaned)) return cleaned;
+  return 'Independent';
+}
+
 export function getBrandColor(brand: string) {
   const normalized = brand.trim().toLowerCase();
   if (BRAND_COLORS[normalized]) return BRAND_COLORS[normalized];

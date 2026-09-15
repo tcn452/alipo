@@ -6,7 +6,7 @@ import { ArrowRight, CheckCircle2, CircleAlert, Info, List, LocateFixed, Map as 
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
-import { CITIES, CITY_CENTERS, DEFAULT_CITY } from '@/lib/constants';
+import { CITIES, CITY_CENTERS, DEFAULT_CITY, classifyStationBrand } from '@/lib/constants';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { Station } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
@@ -53,7 +53,7 @@ function stationFromSupabase(row: Record<string, unknown>): Station | null {
   return {
     id: String(row.id),
     name: String(row.name || 'Fuel station'),
-    brand: String(row.brand || 'Independent'),
+    brand: classifyStationBrand(String(row.name || ''), String(row.brand || '')),
     latitude: latitude as number,
     longitude: longitude as number,
     district: String(row.district || row.city || 'Malawi'),

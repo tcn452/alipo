@@ -1,4 +1,5 @@
 import { Station } from '@/types/alipo';
+import { classifyStationBrand } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,7 +64,7 @@ export async function GET(request: Request) {
     return [{
       id: `osm-${element.type}-${element.id}`,
       name,
-      brand: tags.brand || tags.operator || (name === 'Fuel station' ? 'Independent' : name.split(' ')[0]),
+      brand: classifyStationBrand(name, tags.brand || tags.operator),
       latitude: lat,
       longitude: lon,
       district: tags['addr:suburb'] || tags['addr:district'] || tags['addr:street'] || mappedCity,
