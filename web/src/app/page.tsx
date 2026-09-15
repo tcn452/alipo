@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { ArrowRight, CheckCircle2, CircleAlert, Clock3, Info, List, Map as MapIcon, MapPin, RefreshCw, Search, ShieldCheck, XCircle } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -75,14 +75,17 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('list');
   const [loading, setLoading] = useState(false);
   const [radiusKm, setRadiusKm] = useState(5);
+  const stationRequestRef = useRef(0);
 
   const fetchStations = useCallback(async () => {
+    const requestId = ++stationRequestRef.current;
     setLoading(true);
     try {
       const [latitude, longitude] = CITY_CENTERS[selectedCity];
       const reported = await loadSupabaseStations(selectedCity, latitude, longitude, radiusKm).catch(() => []);
 
       if (reported.length) {
+        if (requestId !== stationRequestRef.current) return;
         setStations(reported);
         setSelectedStation(null);
         return;
@@ -96,10 +99,11 @@ export default function HomePage() {
         })
         .then((result) => result.stations)
         .catch(() => []);
+      if (requestId !== stationRequestRef.current) return;
       setStations(mapped);
       setSelectedStation(null);
     } finally {
-      setLoading(false);
+      if (requestId === stationRequestRef.current) setLoading(false);
     }
   }, [radiusKm, selectedCity]);
 
