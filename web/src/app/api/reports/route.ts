@@ -18,6 +18,7 @@ interface ReportRequest {
     city?: string;
     fuel_types?: string[];
   };
+  report_type?: 'fuel' | 'missing_station';
   status?: string;
   fuel_type?: string;
   queue_estimate?: string;
@@ -29,11 +30,16 @@ export async function POST(request: Request) {
   if (!supabase) return Response.json({ error: 'Supabase server credentials are not configured.' }, { status: 503 });
 
   const body = await request.json().catch(() => null) as ReportRequest | null;
-  const station = body?.station;
+  if (!body) return Response.json({ error: 'A valid report is required.' }, { status: 400 });
+  const station = body.station;
   if (!station?.id || !station.name || !Number.isFinite(station.latitude) || !Number.isFinite(station.longitude)) {
     return Response.json({ error: 'A valid station is required.' }, { status: 400 });
   }
-  if (!body?.status || !STATUSES.has(body.status) || !body.fuel_type || !FUEL_TYPES.has(body.fuel_type)) {
+  const reportType = body.report_type || 'fuel';
+  if (reportType !== 'fuel' && reportType !== 'missing_station') {
+    return Response.json({ error: 'The report type is invalid.' }, { status: 400 });
+  }
+  if (reportType === 'fuel' && (!body.status || !STATUSES.has(body.status) || !body.fuel_type || !FUEL_TYPES.has(body.fuel_type))) {
     return Response.json({ error: 'The report status or fuel type is invalid.' }, { status: 400 });
   }
   if (body.queue_estimate && !QUEUES.has(body.queue_estimate)) {
@@ -75,6 +81,21 @@ export async function POST(request: Request) {
   const reporterPhoneHash = phone && hashSalt
     ? createHash('sha256').update(`${hashSalt}:${phone}`).digest('hex')
     : null;
+  if (reportType === 'missing_station') {
+    if (!phone) return Response.json({ error: 'A phone number is required for a missing-station report.' }, { status: 400 });
+    const fingerprintSalt = hashSalt || process.env.SUPABASE_SECRET_KEY;
+    if (!fingerprintSalt) return Response.json({ error: 'Missing-station reporting is temporarily unavailable.' }, { status: 503 });
+    const reporterFingerprint = createHash('sha256').update(`${fingerprintSalt}:${phone.replace(/\s+/g, '')}`).digest('hex');
+    const { error: absenceError } = await supabase.from('station_absence_reports').insert({
+      station_id: stationId,
+      reporter_fingerprint: reporterFingerprint,
+      source: 'web',
+    });
+    if (absenceError?.code === '23505') return Response.json({ error: 'You have already reported this station.' }, { status: 409 });
+    if (absenceError) return Response.json({ error: 'Unable to save the missing-station report.' }, { status: 502 });
+    return Response.json({ success: true, station_id: stationId }, { status: 201 });
+  }
+
   const { error } = await supabase.from('fuel_reports').insert({
     station_id: stationId,
     status: body.status,

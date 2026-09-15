@@ -126,11 +126,15 @@ export default function StationMap({ stations, selectedStation, onSelectStation,
     if (!container || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
       const map = mapInstanceRef.current;
-      if (map && container.clientWidth > 0 && container.clientHeight > 0) map.resize();
+      if (!map || container.clientWidth <= 0 || container.clientHeight <= 0) return;
+      map.resize();
+      if (!mapReady || selectedStation) return;
+      if (radiusKm) fitRadius(map, center, radiusKm);
+      else map.easeTo({ center: [center[1], center[0]], zoom, duration: 0 });
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, []);
+  }, [center, mapReady, radiusKm, selectedStation, zoom]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;

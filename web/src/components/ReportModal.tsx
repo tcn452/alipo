@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { Check, CheckCircle2, CircleAlert, Clock3, Send, X, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, CircleAlert, MapPinOff, Send, X, XCircle } from 'lucide-react';
 import { FuelStatus, FuelType, QueueEstimate, Station } from '@/types/alipo';
 
 interface ReportModalProps { isOpen: boolean; onClose: () => void; stations: Station[]; selectedStation?: Station | null; onReportSubmitted: () => void; }
@@ -15,6 +15,7 @@ const STATUS_OPTIONS = [
 export function ReportModal({ isOpen, onClose, stations, selectedStation, onReportSubmitted }: ReportModalProps) {
   const [stationId, setStationId] = useState(selectedStation?.id || stations[0]?.id || '');
   const [status, setStatus] = useState<FuelStatus>('available');
+  const [reportType, setReportType] = useState<'fuel' | 'missing_station'>('fuel');
   const [fuelType, setFuelType] = useState<FuelType>('both');
   const [queueEstimate, setQueueEstimate] = useState<QueueEstimate>('short');
   const [phone, setPhone] = useState('');
@@ -40,7 +41,7 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
       const response = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ station, status, fuel_type: fuelType, queue_estimate: queueEstimate, phone: phone.trim() || undefined }),
+        body: JSON.stringify({ station, report_type: reportType, status, fuel_type: fuelType, queue_estimate: queueEstimate, phone: phone.trim() || undefined }),
       });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error || 'Unable to submit this report.');
@@ -58,13 +59,15 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
         {errorMsg && <p className="border border-[#c9583c]/30 bg-[#f9e1d9] p-3 text-xs font-bold text-[#9d321d]">{errorMsg}</p>}
         <label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">Fuel station</span><select value={stationId} onChange={(event) => setStationId(event.target.value)} className="h-12 w-full border border-line bg-white px-3 text-sm font-bold outline-none focus:border-forest">{stations.map((station) => <option key={station.id} value={station.id}>{station.name} — {station.district}</option>)}</select></label>
 
-        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">Fuel situation</legend><div className="grid grid-cols-2 gap-2">{STATUS_OPTIONS.map(({ value, title, detail, icon: Icon }) => <button key={value} type="button" onClick={() => setStatus(value)} className={`flex min-h-20 items-center gap-3 border p-3 text-left transition ${status === value ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white hover:border-[#98a493]'}`}><Icon className="h-5 w-5 shrink-0" /><span><strong className="block text-xs">{title}</strong><span className="mt-0.5 block text-[10px] opacity-65">{detail}</span></span></button>)}</div></fieldset>
+        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">Report type</legend><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setReportType('fuel')} className={`min-h-16 border p-3 text-left ${reportType === 'fuel' ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><strong className="block text-xs">Fuel update</strong><span className="mt-1 block text-[10px] opacity-65">Availability and queue</span></button><button type="button" onClick={() => setReportType('missing_station')} className={`flex min-h-16 items-center gap-2 border p-3 text-left ${reportType === 'missing_station' ? 'border-[#c9583c] bg-[#f9e1d9] text-[#9d321d]' : 'border-line bg-white'}`}><MapPinOff className="h-5 w-5" /><span><strong className="block text-xs">Station does not exist</strong><span className="mt-1 block text-[10px] opacity-65">Flag an incorrect location</span></span></button></div></fieldset>
+
+        {reportType === 'fuel' ? <><fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">Fuel situation</legend><div className="grid grid-cols-2 gap-2">{STATUS_OPTIONS.map(({ value, title, detail, icon: Icon }) => <button key={value} type="button" onClick={() => setStatus(value)} className={`flex min-h-20 items-center gap-3 border p-3 text-left transition ${status === value ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white hover:border-[#98a493]'}`}><Icon className="h-5 w-5 shrink-0" /><span><strong className="block text-xs">{title}</strong><span className="mt-0.5 block text-[10px] opacity-65">{detail}</span></span></button>)}</div></fieldset>
 
         <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">Fuel type</legend><div className="grid grid-cols-3 gap-2">{(['both', 'petrol', 'diesel'] as FuelType[]).map((type) => <button key={type} type="button" onClick={() => setFuelType(type)} className={`h-10 border text-xs font-black capitalize ${fuelType === type ? 'border-forest bg-forest text-white' : 'border-line bg-white text-ink'}`}>{type === 'both' ? 'Both' : type}</button>)}</div></fieldset>
 
-        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">Queue length</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[{ id: 'none', label: 'None', time: '< 5 min' }, { id: 'short', label: 'Short', time: '< 15 min' }, { id: 'medium', label: 'Medium', time: '15–45 min' }, { id: 'long', label: 'Long', time: '> 45 min' }].map((queue) => <button key={queue.id} type="button" onClick={() => setQueueEstimate(queue.id as QueueEstimate)} className={`border px-2 py-2.5 text-center ${queueEstimate === queue.id ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><strong className="block text-xs">{queue.label}</strong><span className="text-[9px] text-muted">{queue.time}</span></button>)}</div></fieldset>
+        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">Queue length</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[{ id: 'none', label: 'None', time: '< 5 min' }, { id: 'short', label: 'Short', time: '< 15 min' }, { id: 'medium', label: 'Medium', time: '15–45 min' }, { id: 'long', label: 'Long', time: '> 45 min' }].map((queue) => <button key={queue.id} type="button" onClick={() => setQueueEstimate(queue.id as QueueEstimate)} className={`border px-2 py-2.5 text-center ${queueEstimate === queue.id ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><strong className="block text-xs">{queue.label}</strong><span className="text-[9px] text-muted">{queue.time}</span></button>)}</div></fieldset></> : <p className="border-l-2 border-[#c9583c] bg-[#f9e1d9]/60 px-4 py-3 text-xs leading-5 text-[#713021]">Five reports from different phone numbers will remove this station from public results. Reports are retained for review.</p>}
 
-        <label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">Phone <em className="font-normal normal-case">optional</em></span><input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+265..." className="h-11 w-full border border-line bg-white px-3 text-sm outline-none focus:border-forest" /></label>
+        <label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">Phone <em className="font-normal normal-case">{reportType === 'missing_station' ? 'required to prevent duplicate reports' : 'optional'}</em></span><input type="tel" required={reportType === 'missing_station'} value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+265..." className="h-11 w-full border border-line bg-white px-3 text-sm outline-none focus:border-forest" /></label>
 
         <button type="submit" disabled={isSubmitting} className="inline-flex h-12 w-full items-center justify-center gap-2 bg-forest text-sm font-black text-white transition hover:bg-[#0b5940] disabled:opacity-50"><Send className="h-4 w-4" />{isSubmitting ? 'Submitting report...' : 'Submit report'}</button>
         <p className="text-center text-[10px] text-muted">Reports are timestamped and cross-checked by the community.</p>
