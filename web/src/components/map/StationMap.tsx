@@ -78,6 +78,7 @@ interface StationMapProps {
   stations: Station[];
   selectedStation: Station | null;
   onSelectStation: (station: Station) => void;
+  onClearSelection?: () => void;
   center?: [number, number];
   zoom?: number;
   radiusKm?: number;
@@ -85,7 +86,7 @@ interface StationMapProps {
   focusUserLocation?: boolean;
 }
 
-export default function StationMap({ stations, selectedStation, onSelectStation, center = DEFAULT_LOCATION, zoom = 12, radiusKm, userLocation, focusUserLocation = false }: StationMapProps) {
+export default function StationMap({ stations, selectedStation, onSelectStation, onClearSelection, center = DEFAULT_LOCATION, zoom = 12, radiusKm, userLocation, focusUserLocation = false }: StationMapProps) {
   const { t } = useLanguage();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<MapLibreMap | null>(null);
@@ -176,7 +177,7 @@ export default function StationMap({ stations, selectedStation, onSelectStation,
         district.textContent = station.district;
         popup.append(title, district);
         const marker = new maplibre.Marker({ element, anchor: 'center' }).setLngLat([station.longitude, station.latitude]).setPopup(new maplibre.Popup({ offset: 16, closeButton: false }).setDOMContent(popup)).addTo(map);
-        element.addEventListener('click', () => onSelectStation(station));
+        element.addEventListener('click', (event) => { event.stopPropagation(); onSelectStation(station); });
         return [marker];
       });
     });
@@ -213,7 +214,7 @@ export default function StationMap({ stations, selectedStation, onSelectStation,
   }, [mapReady, t, userLocation]);
 
   return (
-    <div className="relative h-full min-h-[610px] w-full overflow-hidden">
+    <div onClickCapture={() => onClearSelection?.()} className="relative h-full min-h-[610px] w-full overflow-hidden">
       <div ref={mapContainerRef} className="h-full w-full" />
       {mapError ? <div role="alert" className="absolute inset-0 z-20 grid place-items-center bg-[#dce2d6] px-6 text-center"><div className="max-w-sm border border-forest/15 bg-ivory p-5 shadow-lg"><p className="text-sm font-black uppercase tracking-[.08em] text-forest">{t('Map temporarily unavailable')}</p><p className="mt-2 text-xs leading-5 text-muted">{t('Please check your connection and refresh to load the Malawi map.')}</p></div></div> : null}
       <div className={`pointer-events-none absolute inset-0 z-20 grid place-items-center bg-[#dce2d6]/90 transition-opacity duration-200 ${tilesLoading && !mapError ? 'opacity-100' : 'opacity-0'}`} aria-hidden={!tilesLoading || mapError}>
