@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Languages, LayoutDashboard, Plus, Radio, Smartphone } from 'lucide-react';
+import { Languages, LayoutDashboard, Plus, Radio } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
 
 interface HeaderProps { onOpenReport?: () => void; }
@@ -19,7 +19,6 @@ export function Header({ onOpenReport }: HeaderProps) {
 
         <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary navigation">
           <Link href="/" className="inline-flex items-center gap-2 text-xs font-black text-forest"><Radio className="h-4 w-4 text-orange" /> {t('Live map')}</Link>
-          <span className="inline-flex items-center gap-2 text-xs font-bold text-muted"><Smartphone className="h-4 w-4" /> USSD <strong className="font-mono text-ink">*384*265#</strong></span>
           <Link href="/dashboard" className="inline-flex items-center gap-2 text-xs font-bold text-ink transition hover:text-forest"><LayoutDashboard className="h-4 w-4" /> {t('Fleet portal')}</Link>
         </nav>
 
