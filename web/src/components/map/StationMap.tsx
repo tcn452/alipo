@@ -102,7 +102,6 @@ export default function StationMap({ stations, selectedStation, onSelectStation,
       if (!active || !mapContainerRef.current) return;
       const map = new maplibre.Map({ container: mapContainerRef.current, style: MAP_STYLE, center: MALAWI_OVERVIEW, zoom: MALAWI_OVERVIEW_ZOOM, attributionControl: true, fadeDuration: 180, maxZoom: 18 });
       map.addControl(new maplibre.NavigationControl({ showCompass: false }), 'top-left');
-      map.on('movestart', () => setTilesLoading(true));
       map.on('idle', () => setTilesLoading(false));
       map.on('error', () => setTilesLoading(false));
       map.on('load', () => {

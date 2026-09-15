@@ -44,8 +44,8 @@ export function StationCard({ station, stationNumber, onReportClick, onSelectSta
         <span className={`shrink-0 border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${status.color}`}>{t(status.label)}</span>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 border-y border-line py-3 text-xs">
-        <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Fuel types')}</span><strong className="mt-0.5 block capitalize">{station.fuel_types.map((type) => t(type === 'petrol' ? 'Petrol' : 'Diesel')).join(' & ')}</strong></div>
+      <div className="mt-4 grid grid-cols-2 gap-3 border-y border-line py-3 text-xs">
+        <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Fuel availability')}</span><div className="mt-1.5 space-y-1">{(['petrol', 'diesel'] as const).map((fuel) => { const fuelStatus = station[`${fuel}_status`] || 'unknown'; const config = STATUS_CONFIG[fuelStatus] || STATUS_CONFIG.unknown; return <div key={fuel} className="flex items-center justify-between gap-2"><strong>{t(fuel === 'petrol' ? 'Petrol' : 'Diesel')}</strong><span className={`border px-1.5 py-0.5 text-[9px] font-black uppercase ${config.color}`}>{t(config.label)}</span></div>; })}</div></div>
         <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Queue')}</span><strong className="mt-0.5 flex items-center gap-1"><Clock3 className="h-3 w-3" /> {queue?.duration ? t(queue.duration) : t('Unknown')}</strong></div>
       </div>
 

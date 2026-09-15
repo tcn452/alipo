@@ -15,6 +15,10 @@ export interface Station {
   fuel_types: ('petrol' | 'diesel')[];
   contact_phone?: string;
   latest_status?: FuelStatus;
+  petrol_status?: FuelStatus;
+  diesel_status?: FuelStatus;
+  petrol_reported_at?: string;
+  diesel_reported_at?: string;
   latest_queue?: QueueEstimate;
   latest_price_petrol?: number;
   latest_price_diesel?: number;

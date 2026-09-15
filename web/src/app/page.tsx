@@ -42,6 +42,13 @@ function stationFromSupabase(row: Record<string, unknown>): Station | null {
   const lastReportedAt = row.last_reported_at ? String(row.last_reported_at) : undefined;
   const reportedStatus = row.latest_status as Station['latest_status'];
   const isStale = lastReportedAt ? Date.now() - new Date(lastReportedAt).getTime() >= 4 * 60 * 60 * 1000 : false;
+  const fuelStatus = (fuel: 'petrol' | 'diesel') => {
+    const reportedAt = row[`${fuel}_reported_at`] ? String(row[`${fuel}_reported_at`]) : undefined;
+    const status = (row[`${fuel}_status`] || 'unknown') as Station['latest_status'];
+    return { status: reportedAt && Date.now() - new Date(reportedAt).getTime() >= 4 * 60 * 60 * 1000 && status !== 'unknown' ? 'stale' as const : status, reportedAt };
+  };
+  const petrol = fuelStatus('petrol');
+  const diesel = fuelStatus('diesel');
 
   return {
     id: String(row.id),
@@ -54,6 +61,10 @@ function stationFromSupabase(row: Record<string, unknown>): Station | null {
     verified: Boolean(row.verified),
     fuel_types: Array.isArray(row.fuel_types) ? row.fuel_types.filter((type): type is 'petrol' | 'diesel' => type === 'petrol' || type === 'diesel') : ['petrol', 'diesel'],
     latest_status: isStale && reportedStatus !== 'unknown' ? 'stale' : reportedStatus,
+    petrol_status: petrol.status,
+    diesel_status: diesel.status,
+    petrol_reported_at: petrol.reportedAt,
+    diesel_reported_at: diesel.reportedAt,
     latest_queue: isStale ? undefined : row.latest_queue as Station['latest_queue'],
     last_reported_at: lastReportedAt,
     updated: row.updated_at ? String(row.updated_at) : undefined,
@@ -79,6 +90,7 @@ export default function HomePage() {
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedCity, setSelectedCity] = useState(DEFAULT_CITY);
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedFuel, setSelectedFuel] = useState<'all' | 'petrol' | 'diesel'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -88,6 +100,13 @@ export default function HomePage() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationState, setLocationState] = useState<'idle' | 'locating' | 'active' | 'outside' | 'error'>('idle');
   const stationRequestRef = useRef(0);
+  const mapSectionRef = useRef<HTMLDivElement>(null);
+
+  const showMap = useCallback(() => {
+    setSelectedStation(null);
+    setActiveTab('map');
+    window.requestAnimationFrame(() => mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, []);
 
   const fetchStations = useCallback(async () => {
     const requestId = ++stationRequestRef.current;
@@ -151,16 +170,21 @@ export default function HomePage() {
   }, [fetchStations]);
 
   const filteredStations = useMemo(() => stations.filter((station) => {
-    if (selectedStatus !== 'all' && station.latest_status !== selectedStatus) return false;
+    if (selectedFuel !== 'all' && !station.fuel_types.includes(selectedFuel)) return false;
+    const effectiveStatus = selectedFuel === 'petrol' ? station.petrol_status : selectedFuel === 'diesel' ? station.diesel_status : station.latest_status;
+    if (selectedStatus !== 'all' && effectiveStatus !== selectedStatus) return false;
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       return [station.name, station.district, station.brand].some((value) => value.toLowerCase().includes(query));
     }
     return true;
-  }), [stations, selectedCity, selectedStatus, searchQuery]);
+  }), [stations, selectedFuel, selectedStatus, searchQuery]);
 
   const mapCenter = selectedCity === 'My Location' && userLocation ? userLocation : (CITY_CENTERS[selectedCity] || CITY_CENTERS['All Cities']);
-  const stats = useMemo(() => ({ available: filteredStations.filter((station) => station.latest_status === 'available').length, low: filteredStations.filter((station) => station.latest_status === 'low').length, out: filteredStations.filter((station) => station.latest_status === 'out').length }), [filteredStations]);
+  const stats = useMemo(() => {
+    const statusFor = (station: Station) => selectedFuel === 'petrol' ? station.petrol_status : selectedFuel === 'diesel' ? station.diesel_status : station.latest_status;
+    return { available: filteredStations.filter((station) => statusFor(station) === 'available').length, low: filteredStations.filter((station) => statusFor(station) === 'low').length, out: filteredStations.filter((station) => statusFor(station) === 'out').length };
+  }, [filteredStations, selectedFuel]);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-ivory text-ink">
@@ -195,7 +219,7 @@ export default function HomePage() {
             {locationState === 'outside' ? <p role="status" className="mt-3 border-l-2 border-orange pl-3 text-xs font-bold text-muted">{t('Your location is outside Malawi, so the national map is shown.')}</p> : locationState === 'error' ? <p role="status" className="mt-3 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">{t('Location unavailable. Allow location access in your browser and try again.')}</p> : null}
             <div className="mt-3 flex items-center justify-between gap-3">
               <div className="no-scrollbar flex gap-2 overflow-x-auto">{STATUS_FILTERS.map((filter) => <button key={filter.id} onClick={() => setSelectedStatus(filter.id)} className={`inline-flex h-9 items-center gap-2 whitespace-nowrap px-3 text-xs font-bold transition ${selectedStatus === filter.id ? 'bg-[#dfead7] text-forest' : 'text-muted hover:bg-white'}`}>{filter.id !== 'all' && <span className={`h-2 w-2 rounded-full ${filter.id === 'available' ? 'bg-[#398151]' : filter.id === 'low' ? 'bg-[#df972f]' : filter.id === 'stale' ? 'bg-[#795548]' : 'bg-[#c9583c]'}`} />}{t(filter.label)}</button>)}</div>
-              <div className="flex items-center gap-3"><label className="flex items-center gap-2 text-xs font-bold text-muted">Radius<select aria-label="Search radius" value={radiusKm} onChange={(event) => { setSelectedStation(null); setRadiusKm(Number(event.target.value)); }} disabled={selectedCity === 'All Cities'} className="h-9 border border-line bg-white px-2 text-ink disabled:opacity-40">{[5, 10, 20, 30, 50].map((radius) => <option key={radius} value={radius}>{radius} km</option>)}</select></label><div className="flex border border-line bg-white lg:hidden"><button aria-label="Show station list" onClick={() => setActiveTab('list')} className={`p-2.5 ${activeTab === 'list' ? 'bg-forest text-white' : 'text-muted'}`}><List className="h-4 w-4" /></button><button aria-label="Show map" onClick={() => { setSelectedStation(null); setActiveTab('map'); }} className={`p-2.5 ${activeTab === 'map' ? 'bg-forest text-white' : 'text-muted'}`}><MapIcon className="h-4 w-4" /></button></div></div>
+              <div className="flex items-center gap-3"><div className="flex border border-line bg-white" aria-label={t('Fuel type filter')}>{(['all', 'petrol', 'diesel'] as const).map((fuel) => <button key={fuel} type="button" onClick={() => { setSelectedStation(null); setSelectedFuel(fuel); }} aria-pressed={selectedFuel === fuel} className={`h-9 px-3 text-[10px] font-black uppercase ${selectedFuel === fuel ? 'bg-orange text-white' : 'text-muted hover:text-forest'}`}>{t(fuel === 'all' ? 'All fuel' : fuel === 'petrol' ? 'Petrol' : 'Diesel')}</button>)}</div><label className="hidden items-center gap-2 text-xs font-bold text-muted sm:flex">{t('Radius')}<select aria-label={t('Search radius')} value={radiusKm} onChange={(event) => { setSelectedStation(null); setRadiusKm(Number(event.target.value)); }} disabled={selectedCity === 'All Cities'} className="h-9 border border-line bg-white px-2 text-ink disabled:opacity-40">{[5, 10, 20, 30, 50].map((radius) => <option key={radius} value={radius}>{radius} km</option>)}</select></label><div className="flex border border-line bg-white lg:hidden"><button aria-label={t('Show station list')} onClick={() => setActiveTab('list')} className={`p-2.5 ${activeTab === 'list' ? 'bg-forest text-white' : 'text-muted'}`}><List className="h-4 w-4" /></button><button aria-label={t('Show map')} onClick={showMap} className={`p-2.5 ${activeTab === 'map' ? 'bg-forest text-white' : 'text-muted'}`}><MapIcon className="h-4 w-4" /></button></div></div>
             </div>
           </div>
         </section>
@@ -207,7 +231,7 @@ export default function HomePage() {
             {loading ? <div role="status" className="border border-line bg-white p-8 text-center"><RefreshCw className="mx-auto h-6 w-6 animate-spin text-orange" /><p className="mt-3 font-bold">{t('Loading fuel stations')}</p><p className="mt-1 text-sm text-muted">{t('Checking live Alipo coverage…')}</p></div> : filteredStations.length ? <div className="space-y-3 lg:max-h-[650px] lg:overflow-y-auto lg:pr-2">{filteredStations.map((station, index) => <StationCard key={station.id} station={station} stationNumber={index + 1} isSelected={selectedStation?.id === station.id} onSelectStation={setSelectedStation} onReportClick={(item) => { setSelectedStation(item); setIsReportModalOpen(true); }} />)}</div> : <div className="border border-line bg-white p-8 text-center"><Info className="mx-auto h-6 w-6 text-muted" /><p className="mt-3 font-bold">{t('No matching stations')}</p><p className="mt-1 text-sm text-muted">{t('Try another area or fuel status.')}</p></div>}
           </aside>
 
-          <div className={`${activeTab === 'list' ? 'hidden lg:block' : 'block'} relative min-h-[610px] bg-[#dce2d6] lg:min-h-[720px]`}>
+          <div ref={mapSectionRef} className={`${activeTab === 'list' ? 'hidden lg:block' : 'block'} relative min-h-[610px] scroll-mt-[190px] bg-[#dce2d6] lg:min-h-[720px]`}>
             <StationMap stations={filteredStations} selectedStation={selectedStation} onSelectStation={setSelectedStation} center={mapCenter} zoom={selectedCity === 'All Cities' ? 7 : selectedCity === 'My Location' ? 14.5 : 12} radiusKm={selectedCity === 'All Cities' ? undefined : radiusKm} userLocation={userLocation} focusUserLocation={selectedCity === 'My Location'} />
             {loading ? <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-30 -translate-x-1/2 border border-forest/15 bg-ivory px-4 py-3 text-xs font-black text-forest shadow-lg"><span className="inline-flex items-center gap-2"><RefreshCw className="h-4 w-4 animate-spin text-orange" /> {t('Loading fuel stations…')}</span></div> : null}
             {selectedStation && <div className="absolute bottom-5 left-4 right-4 z-[400] border border-black/10 bg-white p-5 shadow-[0_24px_70px_rgba(5,48,33,.22)] sm:left-6 sm:right-auto sm:w-[410px]">
