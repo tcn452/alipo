@@ -5,6 +5,9 @@ import { LocateFixed, RefreshCw } from 'lucide-react';
 import { Station } from '@/types/alipo';
 import { DEFAULT_LOCATION, getBrandColor } from '@/lib/constants';
 
+const MALAWI_OVERVIEW: [number, number] = [-13.2543, 34.3015];
+const MALAWI_OVERVIEW_ZOOM = 7;
+
 function hasRenderableSize(map: any) {
   const size = map.getSize();
   return size.x > 0 && size.y > 0;
@@ -47,8 +50,8 @@ export default function StationMap({
       if (mapInstanceRef.current) return;
 
       const map = L.map(mapContainerRef.current, {
-        center: center,
-        zoom: zoom,
+        center: MALAWI_OVERVIEW,
+        zoom: MALAWI_OVERVIEW_ZOOM,
         zoomControl: true,
         fadeAnimation: true,
         zoomAnimation: true,
@@ -76,10 +79,17 @@ export default function StationMap({
           dashArray: '7 8',
           interactive: false,
         }).addTo(map);
-        if (hasRenderableSize(map)) map.fitBounds(radiusCircleRef.current.getBounds(), { padding: [24, 24] });
       }
 
       mapInstanceRef.current = map;
+      tiles.once('load', () => {
+        if (!hasRenderableSize(map)) return;
+        if (radiusCircleRef.current) {
+          map.flyToBounds(radiusCircleRef.current.getBounds(), { padding: [24, 24], duration: 0.65 });
+        } else {
+          map.flyTo(center, zoom, { duration: 0.65 });
+        }
+      });
     };
 
     initMap();
