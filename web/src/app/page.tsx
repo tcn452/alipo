@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { ArrowRight, CheckCircle2, CircleAlert, Clock3, Info, List, Map as MapIcon, MapPin, RefreshCw, Search, XCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle2, CircleAlert, Clock3, Info, List, LocateFixed, Map as MapIcon, MapPin, RefreshCw, Search, XCircle } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
@@ -17,6 +17,10 @@ const StationMap = dynamic(() => import('@/components/map/StationMap'), {
 });
 
 const STATUS_FILTERS = [{ id: 'all', label: 'All reports' }, { id: 'available', label: 'Available' }, { id: 'low', label: 'Low supply' }, { id: 'out', label: 'No fuel' }];
+
+function isInMalawi(latitude: number, longitude: number) {
+  return latitude >= -17.2 && latitude <= -9.2 && longitude >= 32.65 && longitude <= 35.95;
+}
 
 function stationFromSupabase(row: Record<string, unknown>): Station | null {
   let latitude = typeof row.latitude === 'number' ? row.latitude : undefined;
@@ -75,13 +79,15 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('list');
   const [loading, setLoading] = useState(false);
   const [radiusKm, setRadiusKm] = useState(5);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [locationState, setLocationState] = useState<'idle' | 'locating' | 'active' | 'outside' | 'error'>('idle');
   const stationRequestRef = useRef(0);
 
   const fetchStations = useCallback(async () => {
     const requestId = ++stationRequestRef.current;
     setLoading(true);
     try {
-      const [latitude, longitude] = CITY_CENTERS[selectedCity];
+      const [latitude, longitude] = selectedCity === 'My Location' && userLocation ? userLocation : (CITY_CENTERS[selectedCity] || CITY_CENTERS['All Cities']);
       const reported = await loadSupabaseStations(selectedCity, latitude, longitude, radiusKm).catch(() => []);
 
       if (reported.length) {
@@ -105,7 +111,25 @@ export default function HomePage() {
     } finally {
       if (requestId === stationRequestRef.current) setLoading(false);
     }
-  }, [radiusKm, selectedCity]);
+  }, [radiusKm, selectedCity, userLocation]);
+
+  const activateLocation = useCallback(() => {
+    if (!navigator.geolocation) return setLocationState('error');
+    setLocationState('locating');
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
+      if (!isInMalawi(coords.latitude, coords.longitude)) {
+        setUserLocation(null);
+        setSelectedStation(null);
+        setSelectedCity('All Cities');
+        setLocationState('outside');
+        return;
+      }
+      setUserLocation([coords.latitude, coords.longitude]);
+      setSelectedStation(null);
+      setSelectedCity('My Location');
+      setLocationState('active');
+    }, () => setLocationState('error'), { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 });
+  }, []);
 
   useEffect(() => {
     void fetchStations();
@@ -129,7 +153,7 @@ export default function HomePage() {
     return true;
   }), [stations, selectedCity, selectedStatus, searchQuery]);
 
-  const mapCenter = CITY_CENTERS[selectedCity];
+  const mapCenter = selectedCity === 'My Location' && userLocation ? userLocation : (CITY_CENTERS[selectedCity] || CITY_CENTERS['All Cities']);
   const stats = useMemo(() => ({ available: filteredStations.filter((station) => station.latest_status === 'available').length, low: filteredStations.filter((station) => station.latest_status === 'low').length, out: filteredStations.filter((station) => station.latest_status === 'out').length }), [filteredStations]);
 
   return (
@@ -160,8 +184,9 @@ export default function HomePage() {
           <div className="mx-auto max-w-[1440px] px-4 py-4 sm:px-8 lg:px-12">
             <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_auto] lg:items-center">
               <label className="relative block"><Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><span className="sr-only">Search station or area</span><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search station, area or brand" className="h-12 w-full border border-line bg-white pl-11 pr-4 text-sm outline-none transition focus:border-forest focus:ring-2 focus:ring-forest/10" /></label>
-              <div className="no-scrollbar flex gap-2 overflow-x-auto">{CITIES.map((city) => <button key={city} onClick={() => { setSelectedStation(null); setSelectedCity(city); }} className={`h-10 whitespace-nowrap px-4 text-xs font-bold transition ${selectedCity === city ? 'bg-forest text-white' : 'border border-line bg-white text-ink hover:border-forest'}`}>{city === 'All Cities' ? 'All Malawi' : city}</button>)}</div>
+              <div className="no-scrollbar flex gap-2 overflow-x-auto"><button type="button" onClick={activateLocation} disabled={locationState === 'locating'} className={`inline-flex h-10 items-center gap-2 whitespace-nowrap px-4 text-xs font-bold transition ${selectedCity === 'My Location' ? 'bg-orange text-white' : 'border border-orange/40 bg-white text-forest hover:border-orange'} disabled:opacity-60`}><LocateFixed className={`h-4 w-4 ${locationState === 'locating' ? 'animate-pulse' : ''}`} />{locationState === 'locating' ? 'Finding you…' : locationState === 'active' ? 'Near me' : 'Use my location'}</button>{CITIES.map((city) => <button key={city} onClick={() => { setSelectedStation(null); setSelectedCity(city); }} className={`h-10 whitespace-nowrap px-4 text-xs font-bold transition ${selectedCity === city ? 'bg-forest text-white' : 'border border-line bg-white text-ink hover:border-forest'}`}>{city === 'All Cities' ? 'All Malawi' : city}</button>)}</div>
             </div>
+            {locationState === 'outside' ? <p role="status" className="mt-3 border-l-2 border-orange pl-3 text-xs font-bold text-muted">Your location is outside Malawi, so the national map is shown.</p> : locationState === 'error' ? <p role="status" className="mt-3 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">Location unavailable. Allow location access in your browser and try again.</p> : null}
             <div className="mt-3 flex items-center justify-between gap-3">
               <div className="no-scrollbar flex gap-2 overflow-x-auto">{STATUS_FILTERS.map((filter) => <button key={filter.id} onClick={() => setSelectedStatus(filter.id)} className={`inline-flex h-9 items-center gap-2 whitespace-nowrap px-3 text-xs font-bold transition ${selectedStatus === filter.id ? 'bg-[#dfead7] text-forest' : 'text-muted hover:bg-white'}`}>{filter.id !== 'all' && <span className={`h-2 w-2 rounded-full ${filter.id === 'available' ? 'bg-[#398151]' : filter.id === 'low' ? 'bg-[#df972f]' : 'bg-[#c9583c]'}`} />}{filter.label}</button>)}</div>
               <div className="flex items-center gap-3"><label className="flex items-center gap-2 text-xs font-bold text-muted">Radius<select aria-label="Search radius" value={radiusKm} onChange={(event) => { setSelectedStation(null); setRadiusKm(Number(event.target.value)); }} disabled={selectedCity === 'All Cities'} className="h-9 border border-line bg-white px-2 text-ink disabled:opacity-40">{[5, 10, 20, 30, 50].map((radius) => <option key={radius} value={radius}>{radius} km</option>)}</select></label><div className="flex border border-line bg-white lg:hidden"><button aria-label="Show station list" onClick={() => setActiveTab('list')} className={`p-2.5 ${activeTab === 'list' ? 'bg-forest text-white' : 'text-muted'}`}><List className="h-4 w-4" /></button><button aria-label="Show map" onClick={() => { setSelectedStation(null); setActiveTab('map'); }} className={`p-2.5 ${activeTab === 'map' ? 'bg-forest text-white' : 'text-muted'}`}><MapIcon className="h-4 w-4" /></button></div></div>
@@ -171,13 +196,13 @@ export default function HomePage() {
 
         <section className="mx-auto grid max-w-[1440px] lg:min-h-[720px] lg:grid-cols-[440px_minmax(0,1fr)]">
           <aside className={`${activeTab === 'map' ? 'hidden lg:block' : 'block'} border-r border-line bg-[#f8f5ee] px-4 py-6 sm:px-8 lg:px-7`}>
-            <div className="mb-3 flex items-end justify-between"><div><p className="eyebrow text-orange">{selectedCity === 'All Cities' ? 'Malawi coverage' : `${selectedCity} coverage`}</p><h2 className="mt-1 text-xl font-black tracking-[-.03em]">{filteredStations.length} fuel stations{selectedCity !== 'All Cities' ? ` within ${radiusKm} km` : ''}</h2></div><button onClick={fetchStations} className="inline-flex items-center gap-2 text-xs font-bold text-forest"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button></div>
+            <div className="mb-3 flex items-end justify-between"><div><p className="eyebrow text-orange">{selectedCity === 'All Cities' ? 'Malawi coverage' : selectedCity === 'My Location' ? 'Near your location' : `${selectedCity} coverage`}</p><h2 className="mt-1 text-xl font-black tracking-[-.03em]">{filteredStations.length} fuel stations{selectedCity !== 'All Cities' ? ` within ${radiusKm} km` : ''}</h2></div><button onClick={fetchStations} className="inline-flex items-center gap-2 text-xs font-bold text-forest"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button></div>
             <p className="mb-5 border-l-2 border-orange pl-3 text-[11px] leading-4 text-muted">Live Alipo station data. OpenStreetMap is used only where Alipo coverage is unavailable.</p>
             {loading ? <div role="status" className="border border-line bg-white p-8 text-center"><RefreshCw className="mx-auto h-6 w-6 animate-spin text-orange" /><p className="mt-3 font-bold">Loading fuel stations</p><p className="mt-1 text-sm text-muted">Checking live Alipo coverage…</p></div> : filteredStations.length ? <div className="space-y-3 lg:max-h-[650px] lg:overflow-y-auto lg:pr-2">{filteredStations.map((station, index) => <StationCard key={station.id} station={station} stationNumber={index + 1} isSelected={selectedStation?.id === station.id} onSelectStation={setSelectedStation} onReportClick={(item) => { setSelectedStation(item); setIsReportModalOpen(true); }} />)}</div> : <div className="border border-line bg-white p-8 text-center"><Info className="mx-auto h-6 w-6 text-muted" /><p className="mt-3 font-bold">No matching stations</p><p className="mt-1 text-sm text-muted">Try another area or fuel status.</p></div>}
           </aside>
 
           <div className={`${activeTab === 'list' ? 'hidden lg:block' : 'block'} relative min-h-[610px] bg-[#dce2d6] lg:min-h-[720px]`}>
-            <StationMap stations={filteredStations} selectedStation={selectedStation} onSelectStation={setSelectedStation} center={mapCenter} zoom={selectedCity === 'All Cities' ? 7 : 12} radiusKm={selectedCity === 'All Cities' ? undefined : radiusKm} />
+            <StationMap stations={filteredStations} selectedStation={selectedStation} onSelectStation={setSelectedStation} center={mapCenter} zoom={selectedCity === 'All Cities' ? 7 : selectedCity === 'My Location' ? 14.5 : 12} radiusKm={selectedCity === 'All Cities' ? undefined : radiusKm} userLocation={userLocation} focusUserLocation={selectedCity === 'My Location'} />
             {loading ? <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-30 -translate-x-1/2 border border-forest/15 bg-ivory px-4 py-3 text-xs font-black text-forest shadow-lg"><span className="inline-flex items-center gap-2"><RefreshCw className="h-4 w-4 animate-spin text-orange" /> Loading fuel stations…</span></div> : null}
             {selectedStation && <div className="absolute bottom-5 left-4 right-4 z-[400] border border-black/10 bg-white p-5 shadow-[0_24px_70px_rgba(5,48,33,.22)] sm:left-6 sm:right-auto sm:w-[410px]">
               <div className="flex items-start justify-between gap-4"><div><div className="text-[11px] font-black uppercase tracking-[.14em] text-forest">{selectedStation.brand}</div><h3 className="mt-2 text-xl font-black tracking-[-.03em]">{selectedStation.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {selectedStation.district}, {selectedStation.city}</p></div><span className={`whitespace-nowrap px-3 py-1.5 text-xs font-black ${selectedStation.latest_status === 'available' ? 'bg-[#e1edd9] text-forest' : 'bg-[#eeeae1] text-muted'}`}>{selectedStation.latest_status === 'available' ? 'Fuel available' : selectedStation.latest_status === 'low' ? 'Low supply' : selectedStation.latest_status === 'out' ? 'No fuel' : 'Awaiting report'}</span></div>

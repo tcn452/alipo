@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { LocateFixed, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { Station } from '@/types/alipo';
 import { DEFAULT_LOCATION, getBrandColor } from '@/lib/constants';
 import { loadMapLibre } from '@/lib/maplibre-client';
@@ -80,9 +80,11 @@ interface StationMapProps {
   center?: [number, number];
   zoom?: number;
   radiusKm?: number;
+  userLocation?: [number, number] | null;
+  focusUserLocation?: boolean;
 }
 
-export default function StationMap({ stations, selectedStation, onSelectStation, center = DEFAULT_LOCATION, zoom = 12, radiusKm }: StationMapProps) {
+export default function StationMap({ stations, selectedStation, onSelectStation, center = DEFAULT_LOCATION, zoom = 12, radiusKm, userLocation, focusUserLocation = false }: StationMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<MapLibreMarker[]>([]);
@@ -90,7 +92,6 @@ export default function StationMap({ stations, selectedStation, onSelectStation,
   const [mapReady, setMapReady] = useState(false);
   const [tilesLoading, setTilesLoading] = useState(true);
   const [mapError, setMapError] = useState(false);
-  const [locationState, setLocationState] = useState<'idle' | 'locating' | 'found' | 'error'>('idle');
 
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
@@ -129,21 +130,23 @@ export default function StationMap({ stations, selectedStation, onSelectStation,
       if (!map || container.clientWidth <= 0 || container.clientHeight <= 0) return;
       map.resize();
       if (!mapReady || selectedStation) return;
-      if (radiusKm) fitRadius(map, center, radiusKm);
+      if (focusUserLocation) map.easeTo({ center: [center[1], center[0]], zoom: 14.5, duration: 0 });
+      else if (radiusKm) fitRadius(map, center, radiusKm);
       else map.easeTo({ center: [center[1], center[0]], zoom, duration: 0 });
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, [center, mapReady, radiusKm, selectedStation, zoom]);
+  }, [center, focusUserLocation, mapReady, radiusKm, selectedStation, zoom]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !mapReady || selectedStation) return;
     setRadius(map, center, radiusKm);
     if (!hasRenderableSize(map)) return;
-    if (radiusKm) fitRadius(map, center, radiusKm);
+    if (focusUserLocation) map.easeTo({ center: [center[1], center[0]], zoom: 14.5, duration: 650 });
+    else if (radiusKm) fitRadius(map, center, radiusKm);
     else map.easeTo({ center: [center[1], center[0]], zoom, duration: 650 });
-  }, [center, mapReady, radiusKm, selectedStation, zoom]);
+  }, [center, focusUserLocation, mapReady, radiusKm, selectedStation, zoom]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -186,37 +189,32 @@ export default function StationMap({ stations, selectedStation, onSelectStation,
     map.easeTo({ center: [selectedStation.longitude, selectedStation.latitude], zoom: 14, duration: 650 });
   }, [selectedStation]);
 
-  const showUserLocation = () => {
+  useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!navigator.geolocation || !map) return setLocationState('error');
-    setLocationState('locating');
-    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-      const activeMap = mapInstanceRef.current;
-      if (!activeMap) return;
-      const maplibre = await loadMapLibre();
-      const position: [number, number] = [coords.longitude, coords.latitude];
+    if (!map || !mapReady) return;
+    let cancelled = false;
+    void loadMapLibre().then((maplibre: any) => {
+      if (cancelled) return;
+      if (!userLocation) {
+        userMarkerRef.current?.remove();
+        userMarkerRef.current = null;
+        return;
+      }
+      const position: [number, number] = [userLocation[1], userLocation[0]];
       if (!userMarkerRef.current) {
         const element = document.createElement('span');
         element.className = 'alipo-user-location-dot';
         element.append(document.createElement('span'));
-        userMarkerRef.current = new maplibre.Marker({ element, anchor: 'center' }).setLngLat(position).setPopup(new maplibre.Popup({ offset: 14 }).setText('Your location')).addTo(activeMap);
+        userMarkerRef.current = new maplibre.Marker({ element, anchor: 'center' }).setLngLat(position).setPopup(new maplibre.Popup({ offset: 14 }).setText('Your location')).addTo(map);
       } else userMarkerRef.current.setLngLat(position);
-      activeMap.easeTo({ center: position, zoom: Math.max(activeMap.getZoom(), 14), duration: 600 });
-      setLocationState('found');
-    }, () => setLocationState('error'), { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 });
-  };
+    });
+    return () => { cancelled = true; };
+  }, [mapReady, userLocation]);
 
   return (
     <div className="relative h-full min-h-[610px] w-full overflow-hidden">
       <div ref={mapContainerRef} className="h-full w-full" />
       {mapError ? <div role="alert" className="absolute inset-0 z-20 grid place-items-center bg-[#dce2d6] px-6 text-center"><div className="max-w-sm border border-forest/15 bg-ivory p-5 shadow-lg"><p className="text-sm font-black uppercase tracking-[.08em] text-forest">Map temporarily unavailable</p><p className="mt-2 text-xs leading-5 text-muted">Please check your connection and refresh to load the Malawi map.</p></div></div> : null}
-      <div className="absolute right-3 top-3 z-10 flex flex-col items-end gap-2">
-        <button type="button" onClick={showUserLocation} disabled={locationState === 'locating'} className="inline-flex h-10 items-center gap-2 border border-forest/15 bg-white px-3 text-xs font-black text-forest shadow-lg transition hover:bg-ivory disabled:opacity-70" aria-label="Show my location">
-          {locationState === 'locating' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
-          {locationState === 'locating' ? 'Locating…' : locationState === 'found' ? 'Located' : 'My location'}
-        </button>
-        {locationState === 'error' ? <p role="status" className="max-w-52 border border-[#c9583c]/25 bg-ivory px-3 py-2 text-[10px] font-bold leading-4 text-[#9d321d] shadow">Location unavailable. Check browser permission and try again.</p> : null}
-      </div>
       <div className={`pointer-events-none absolute inset-0 z-20 grid place-items-center bg-[#dce2d6]/90 transition-opacity duration-200 ${tilesLoading && !mapError ? 'opacity-100' : 'opacity-0'}`} aria-hidden={!tilesLoading || mapError}>
         <div className="border border-forest/15 bg-ivory px-5 py-4 text-center shadow-lg"><RefreshCw className="mx-auto h-5 w-5 animate-spin text-orange" /><p className="mt-2 text-xs font-black uppercase tracking-[.12em] text-forest">Loading Malawi map</p></div>
       </div>

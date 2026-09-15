@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Archivo_Black, DM_Sans, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 import { PwaRegistration } from '@/components/PwaRegistration';
+import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 
 const bodyFont = DM_Sans({ subsets: ['latin'], variable: '--font-body' });
 const displayFont = Archivo_Black({ weight: '400', subsets: ['latin'], variable: '--font-display' });
@@ -35,6 +36,7 @@ export default function RootLayout({
       </head>
       <body className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} min-h-screen antialiased`}>
         <PwaRegistration />
+        <PwaInstallPrompt />
         {children}
       </body>
     </html>

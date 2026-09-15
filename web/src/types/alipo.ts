@@ -41,6 +41,16 @@ export interface FuelReport {
   created: string;
 }
 
+export interface StationReportHistoryItem {
+  id: string;
+  status: Exclude<FuelStatus, 'unknown'>;
+  fuel_type: FuelType;
+  queue_estimate?: QueueEstimate;
+  source: ReportSource;
+  confirmations: number;
+  created_at: string;
+}
+
 export interface Company {
   id: string;
   name: string;
