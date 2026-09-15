@@ -16,7 +16,7 @@ const StationMap = dynamic(() => import('@/components/map/StationMap'), {
   loading: () => <div className="grid min-h-[540px] place-items-center bg-[#e7eadf] text-forest"><div className="text-center"><RefreshCw className="mx-auto mb-3 h-6 w-6 animate-spin" /><p className="text-sm font-bold">Loading the live fuel map</p></div></div>,
 });
 
-const STATUS_FILTERS = [{ id: 'all', label: 'All reports' }, { id: 'available', label: 'Available' }, { id: 'low', label: 'Low supply' }, { id: 'out', label: 'No fuel' }];
+const STATUS_FILTERS = [{ id: 'all', label: 'All reports' }, { id: 'available', label: 'Available' }, { id: 'low', label: 'Low supply' }, { id: 'out', label: 'No fuel' }, { id: 'stale', label: 'Stale' }];
 
 function isInMalawi(latitude: number, longitude: number) {
   return latitude >= -17.2 && latitude <= -9.2 && longitude >= 32.65 && longitude <= 35.95;
@@ -38,6 +38,10 @@ function stationFromSupabase(row: Record<string, unknown>): Station | null {
   }
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
 
+  const lastReportedAt = row.last_reported_at ? String(row.last_reported_at) : undefined;
+  const reportedStatus = row.latest_status as Station['latest_status'];
+  const isStale = lastReportedAt ? Date.now() - new Date(lastReportedAt).getTime() >= 4 * 60 * 60 * 1000 : false;
+
   return {
     id: String(row.id),
     name: String(row.name || 'Fuel station'),
@@ -48,9 +52,9 @@ function stationFromSupabase(row: Record<string, unknown>): Station | null {
     city: String(row.city || 'Malawi'),
     verified: Boolean(row.verified),
     fuel_types: Array.isArray(row.fuel_types) ? row.fuel_types.filter((type): type is 'petrol' | 'diesel' => type === 'petrol' || type === 'diesel') : ['petrol', 'diesel'],
-    latest_status: row.latest_status as Station['latest_status'],
-    latest_queue: row.latest_queue as Station['latest_queue'],
-    last_reported_at: row.last_reported_at ? String(row.last_reported_at) : undefined,
+    latest_status: isStale && reportedStatus !== 'unknown' ? 'stale' : reportedStatus,
+    latest_queue: isStale ? undefined : row.latest_queue as Station['latest_queue'],
+    last_reported_at: lastReportedAt,
     updated: row.updated_at ? String(row.updated_at) : undefined,
     distance_km: typeof row.distance_km === 'number' ? row.distance_km : undefined,
   };
@@ -188,7 +192,7 @@ export default function HomePage() {
             </div>
             {locationState === 'outside' ? <p role="status" className="mt-3 border-l-2 border-orange pl-3 text-xs font-bold text-muted">Your location is outside Malawi, so the national map is shown.</p> : locationState === 'error' ? <p role="status" className="mt-3 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">Location unavailable. Allow location access in your browser and try again.</p> : null}
             <div className="mt-3 flex items-center justify-between gap-3">
-              <div className="no-scrollbar flex gap-2 overflow-x-auto">{STATUS_FILTERS.map((filter) => <button key={filter.id} onClick={() => setSelectedStatus(filter.id)} className={`inline-flex h-9 items-center gap-2 whitespace-nowrap px-3 text-xs font-bold transition ${selectedStatus === filter.id ? 'bg-[#dfead7] text-forest' : 'text-muted hover:bg-white'}`}>{filter.id !== 'all' && <span className={`h-2 w-2 rounded-full ${filter.id === 'available' ? 'bg-[#398151]' : filter.id === 'low' ? 'bg-[#df972f]' : 'bg-[#c9583c]'}`} />}{filter.label}</button>)}</div>
+              <div className="no-scrollbar flex gap-2 overflow-x-auto">{STATUS_FILTERS.map((filter) => <button key={filter.id} onClick={() => setSelectedStatus(filter.id)} className={`inline-flex h-9 items-center gap-2 whitespace-nowrap px-3 text-xs font-bold transition ${selectedStatus === filter.id ? 'bg-[#dfead7] text-forest' : 'text-muted hover:bg-white'}`}>{filter.id !== 'all' && <span className={`h-2 w-2 rounded-full ${filter.id === 'available' ? 'bg-[#398151]' : filter.id === 'low' ? 'bg-[#df972f]' : filter.id === 'stale' ? 'bg-[#795548]' : 'bg-[#c9583c]'}`} />}{filter.label}</button>)}</div>
               <div className="flex items-center gap-3"><label className="flex items-center gap-2 text-xs font-bold text-muted">Radius<select aria-label="Search radius" value={radiusKm} onChange={(event) => { setSelectedStation(null); setRadiusKm(Number(event.target.value)); }} disabled={selectedCity === 'All Cities'} className="h-9 border border-line bg-white px-2 text-ink disabled:opacity-40">{[5, 10, 20, 30, 50].map((radius) => <option key={radius} value={radius}>{radius} km</option>)}</select></label><div className="flex border border-line bg-white lg:hidden"><button aria-label="Show station list" onClick={() => setActiveTab('list')} className={`p-2.5 ${activeTab === 'list' ? 'bg-forest text-white' : 'text-muted'}`}><List className="h-4 w-4" /></button><button aria-label="Show map" onClick={() => { setSelectedStation(null); setActiveTab('map'); }} className={`p-2.5 ${activeTab === 'map' ? 'bg-forest text-white' : 'text-muted'}`}><MapIcon className="h-4 w-4" /></button></div></div>
             </div>
           </div>
@@ -205,7 +209,7 @@ export default function HomePage() {
             <StationMap stations={filteredStations} selectedStation={selectedStation} onSelectStation={setSelectedStation} center={mapCenter} zoom={selectedCity === 'All Cities' ? 7 : selectedCity === 'My Location' ? 14.5 : 12} radiusKm={selectedCity === 'All Cities' ? undefined : radiusKm} userLocation={userLocation} focusUserLocation={selectedCity === 'My Location'} />
             {loading ? <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-30 -translate-x-1/2 border border-forest/15 bg-ivory px-4 py-3 text-xs font-black text-forest shadow-lg"><span className="inline-flex items-center gap-2"><RefreshCw className="h-4 w-4 animate-spin text-orange" /> Loading fuel stations…</span></div> : null}
             {selectedStation && <div className="absolute bottom-5 left-4 right-4 z-[400] border border-black/10 bg-white p-5 shadow-[0_24px_70px_rgba(5,48,33,.22)] sm:left-6 sm:right-auto sm:w-[410px]">
-              <div className="flex items-start justify-between gap-4"><div><div className="text-[11px] font-black uppercase tracking-[.14em] text-forest">{selectedStation.brand}</div><h3 className="mt-2 text-xl font-black tracking-[-.03em]">{selectedStation.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {selectedStation.district}, {selectedStation.city}</p></div><span className={`whitespace-nowrap px-3 py-1.5 text-xs font-black ${selectedStation.latest_status === 'available' ? 'bg-[#e1edd9] text-forest' : 'bg-[#eeeae1] text-muted'}`}>{selectedStation.latest_status === 'available' ? 'Fuel available' : selectedStation.latest_status === 'low' ? 'Low supply' : selectedStation.latest_status === 'out' ? 'No fuel' : 'Awaiting report'}</span></div>
+              <div className="flex items-start justify-between gap-4"><div><div className="text-[11px] font-black uppercase tracking-[.14em] text-forest">{selectedStation.brand}</div><h3 className="mt-2 text-xl font-black tracking-[-.03em]">{selectedStation.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {selectedStation.district}, {selectedStation.city}</p></div><span className={`whitespace-nowrap px-3 py-1.5 text-xs font-black ${selectedStation.latest_status === 'available' ? 'bg-[#e1edd9] text-forest' : selectedStation.latest_status === 'stale' ? 'bg-[#f3ece8] text-[#795548]' : 'bg-[#eeeae1] text-muted'}`}>{selectedStation.latest_status === 'available' ? 'Fuel available' : selectedStation.latest_status === 'low' ? 'Low supply' : selectedStation.latest_status === 'out' ? 'No fuel' : selectedStation.latest_status === 'stale' ? 'Stale report' : 'Awaiting report'}</span></div>
               <div className="mt-4 grid grid-cols-2 border-y border-line py-3 text-xs"><div><span className="block text-muted">Fuel types</span><strong className="capitalize">{selectedStation.fuel_types.join(' & ')}</strong></div><div><span className="block text-muted">Updated</span><strong><TimeAgo date={selectedStation.last_reported_at || selectedStation.updated} /></strong></div></div>
               <a href="#report-fuel" onClick={() => setIsReportModalOpen(true)} className="mt-4 inline-flex w-full items-center justify-between bg-forest px-4 py-3 text-sm font-black text-white transition hover:bg-[#0b5940]">Report an update <ArrowRight className="h-4 w-4" /></a>
             </div>}

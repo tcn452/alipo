@@ -17,5 +17,10 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     .limit(10);
 
   if (error) return Response.json({ error: 'Unable to load report history.' }, { status: 502 });
-  return Response.json({ reports: data || [] }, { headers: { 'Cache-Control': 'private, max-age=30' } });
+  const staleBefore = Date.now() - 4 * 60 * 60 * 1000;
+  const reports = (data || []).map((report) => ({
+    ...report,
+    is_stale: new Date(report.created_at).getTime() <= staleBefore,
+  }));
+  return Response.json({ reports }, { headers: { 'Cache-Control': 'private, max-age=30' } });
 }

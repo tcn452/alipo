@@ -91,5 +91,11 @@ export const STATUS_CONFIG: Record<string, { label: string; color: string; badge
     color: 'text-gray-500 bg-gray-50 border-gray-300',
     badge: 'bg-gray-400 text-white',
     dot: 'bg-gray-400'
+  },
+  stale: {
+    label: 'Stale Report',
+    color: 'text-[#795548] bg-[#f3ece8] border-[#cbb8ae]',
+    badge: 'bg-[#795548] text-white',
+    dot: 'bg-[#795548]'
   }
 };

@@ -1,4 +1,4 @@
-export type FuelStatus = 'available' | 'low' | 'out' | 'unknown';
+export type FuelStatus = 'available' | 'low' | 'out' | 'unknown' | 'stale';
 export type QueueEstimate = 'none' | 'short' | 'medium' | 'long';
 export type FuelType = 'petrol' | 'diesel' | 'both';
 export type ReportSource = 'ussd' | 'whatsapp' | 'web' | 'verified_station';
@@ -49,6 +49,7 @@ export interface StationReportHistoryItem {
   source: ReportSource;
   confirmations: number;
   created_at: string;
+  is_stale: boolean;
 }
 
 export interface Company {

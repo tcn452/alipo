@@ -106,7 +106,7 @@ export async function POST(request: Request) {
     confirmations: 1,
     confidence: 0.5,
     is_active: true,
-    expires_at: new Date(Date.now() + (body.status === 'out' ? 6 : 3) * 60 * 60 * 1000).toISOString(),
+    expires_at: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
   });
 
   if (error) return Response.json({ error: 'Unable to save the fuel report.' }, { status: 502 });
