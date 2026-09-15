@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { ArrowRight, Bell, CheckCircle2, CircleAlert, Info, List, LocateFixed, Map as MapIcon, MapPin, RefreshCw, Search, XCircle } from 'lucide-react';
+import { ArrowRight, Bell, CheckCircle2, CircleAlert, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, RefreshCw, Search, XCircle } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
@@ -11,6 +11,7 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { Station } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
+import { HowItWorks } from '@/components/HowItWorks';
 
 const StationMap = dynamic(() => import('@/components/map/StationMap'), {
   ssr: false,
@@ -110,6 +111,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('list');
   const [loading, setLoading] = useState(false);
   const [radiusKm, setRadiusKm] = useState(5);
@@ -130,6 +132,7 @@ export default function HomePage() {
     window.requestAnimationFrame(() => mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }, []);
   const clearMapSelection = useCallback(() => setSelectedStation(null), []);
+  const closeHowItWorks = useCallback(() => setIsHowItWorksOpen(false), []);
 
   const fetchStations = useCallback(async () => {
     const requestId = ++stationRequestRef.current;
@@ -318,6 +321,7 @@ export default function HomePage() {
               </p>
               <h1 className="mt-4 max-w-3xl font-display text-4xl leading-[.96] tracking-[-0.04em] sm:text-6xl lg:text-7xl">{t("Fuel is there. You're not alone.")}</h1>
               <p className="mt-5 max-w-xl text-sm leading-6 text-white/70 sm:text-base">{t('Find fuel, see queue times and share what you know. Built for every drive moving in Malawi.')}</p>
+              <button type="button" onClick={() => setIsHowItWorksOpen(true)} className="mt-5 inline-flex min-h-11 items-center gap-2 border-b border-white/40 text-sm font-black text-white transition hover:border-[#f5aa54] hover:text-[#f5aa54] focus:outline-none focus:ring-2 focus:ring-[#f5aa54] focus:ring-offset-2 focus:ring-offset-forest"><CircleHelp className="h-4 w-4" /> {t('How Alipo works')}</button>
             </div>
             <div className="grid grid-cols-3 lg:grid-cols-1">
               {[
@@ -329,7 +333,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="sticky top-[72px] z-20 border-b border-line bg-ivory/95 backdrop-blur-xl">
+        <section id="find-fuel" className="sticky top-[72px] z-20 scroll-mt-[72px] border-b border-line bg-ivory/95 backdrop-blur-xl">
           <div className="mx-auto max-w-[1440px] px-4 py-4 sm:px-8 lg:px-12">
             <div className="grid gap-3">
               <label className="relative block"><Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><span className="sr-only">{t('Search station or area')}</span><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t('Search station or area')} className="h-12 w-full border border-line bg-white pl-11 pr-4 text-sm outline-none transition focus:border-forest focus:ring-2 focus:ring-forest/10" /></label>
@@ -375,6 +379,7 @@ export default function HomePage() {
       </main>
       <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo</strong> — Find fuel. Share updates. Keep Malawi moving.</p><p><a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · Created by <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
       <ReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} stations={stations} selectedStation={selectedStation} onReportSubmitted={fetchStations} />
+      <HowItWorks isOpen={isHowItWorksOpen} onClose={closeHowItWorks} />
     </div>
   );
 }
