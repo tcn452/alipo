@@ -5,6 +5,7 @@ import { RefreshCw } from 'lucide-react';
 import { Station } from '@/types/alipo';
 import { DEFAULT_LOCATION, getBrandColor } from '@/lib/constants';
 import { loadMapLibre } from '@/lib/maplibre-client';
+import { useLanguage } from '@/lib/i18n';
 
 type MapLibreMap = any;
 type MapLibreMarker = any;
@@ -85,6 +86,7 @@ interface StationMapProps {
 }
 
 export default function StationMap({ stations, selectedStation, onSelectStation, center = DEFAULT_LOCATION, zoom = 12, radiusKm, userLocation, focusUserLocation = false }: StationMapProps) {
+  const { t } = useLanguage();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<MapLibreMarker[]>([]);
@@ -205,18 +207,18 @@ export default function StationMap({ stations, selectedStation, onSelectStation,
         const element = document.createElement('span');
         element.className = 'alipo-user-location-dot';
         element.append(document.createElement('span'));
-        userMarkerRef.current = new maplibre.Marker({ element, anchor: 'center' }).setLngLat(position).setPopup(new maplibre.Popup({ offset: 14 }).setText('Your location')).addTo(map);
+        userMarkerRef.current = new maplibre.Marker({ element, anchor: 'center' }).setLngLat(position).setPopup(new maplibre.Popup({ offset: 14 }).setText(t('Your location'))).addTo(map);
       } else userMarkerRef.current.setLngLat(position);
     });
     return () => { cancelled = true; };
-  }, [mapReady, userLocation]);
+  }, [mapReady, t, userLocation]);
 
   return (
     <div className="relative h-full min-h-[610px] w-full overflow-hidden">
       <div ref={mapContainerRef} className="h-full w-full" />
-      {mapError ? <div role="alert" className="absolute inset-0 z-20 grid place-items-center bg-[#dce2d6] px-6 text-center"><div className="max-w-sm border border-forest/15 bg-ivory p-5 shadow-lg"><p className="text-sm font-black uppercase tracking-[.08em] text-forest">Map temporarily unavailable</p><p className="mt-2 text-xs leading-5 text-muted">Please check your connection and refresh to load the Malawi map.</p></div></div> : null}
+      {mapError ? <div role="alert" className="absolute inset-0 z-20 grid place-items-center bg-[#dce2d6] px-6 text-center"><div className="max-w-sm border border-forest/15 bg-ivory p-5 shadow-lg"><p className="text-sm font-black uppercase tracking-[.08em] text-forest">{t('Map temporarily unavailable')}</p><p className="mt-2 text-xs leading-5 text-muted">{t('Please check your connection and refresh to load the Malawi map.')}</p></div></div> : null}
       <div className={`pointer-events-none absolute inset-0 z-20 grid place-items-center bg-[#dce2d6]/90 transition-opacity duration-200 ${tilesLoading && !mapError ? 'opacity-100' : 'opacity-0'}`} aria-hidden={!tilesLoading || mapError}>
-        <div className="border border-forest/15 bg-ivory px-5 py-4 text-center shadow-lg"><RefreshCw className="mx-auto h-5 w-5 animate-spin text-orange" /><p className="mt-2 text-xs font-black uppercase tracking-[.12em] text-forest">Loading Malawi map</p></div>
+        <div className="border border-forest/15 bg-ivory px-5 py-4 text-center shadow-lg"><RefreshCw className="mx-auto h-5 w-5 animate-spin text-orange" /><p className="mt-2 text-xs font-black uppercase tracking-[.12em] text-forest">{t('Loading Malawi map')}</p></div>
       </div>
     </div>
   );

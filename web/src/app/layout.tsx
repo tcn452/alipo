@@ -3,6 +3,7 @@ import { Archivo_Black, DM_Sans, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 import { PwaRegistration } from '@/components/PwaRegistration';
 import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
+import { LanguageProvider } from '@/lib/i18n';
 
 const bodyFont = DM_Sans({ subsets: ['latin'], variable: '--font-body' });
 const displayFont = Archivo_Black({ weight: '400', subsets: ['latin'], variable: '--font-display' });
@@ -35,9 +36,11 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.png" type="image/png" />
       </head>
       <body className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} min-h-screen antialiased`}>
-        <PwaRegistration />
-        <PwaInstallPrompt />
-        {children}
+        <LanguageProvider>
+          <PwaRegistration />
+          <PwaInstallPrompt />
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );

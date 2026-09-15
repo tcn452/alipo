@@ -5,19 +5,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatTimeAgo(dateString?: string): string {
-  if (!dateString) return 'No recent update';
+export function formatTimeAgo(dateString?: string, language: 'en' | 'ny' = 'en'): string {
+  if (!dateString) return language === 'ny' ? 'Palibe kusintha kwaposachedwa' : 'No recent update';
   const date = new Date(dateString);
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  if (diffInSeconds < 60) return 'Just now';
+  if (diffInSeconds < 60) return language === 'ny' ? 'Pakali pano' : 'Just now';
   const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  if (diffInMinutes < 60) return language === 'ny' ? `mphindi ${diffInMinutes} zapitazo` : `${diffInMinutes}m ago`;
   const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `${diffInHours}h ago`;
+  if (diffInHours < 24) return language === 'ny' ? `maola ${diffInHours} apitawo` : `${diffInHours}h ago`;
   const diffInDays = Math.floor(diffInHours / 24);
-  return `${diffInDays}d ago`;
+  return language === 'ny' ? `masiku ${diffInDays} apitawo` : `${diffInDays}d ago`;
 }
 
 export function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
