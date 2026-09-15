@@ -83,7 +83,7 @@ export default function ProfileScreen() {
         </Text>
         <View className="bg-emerald-950/60 p-3 rounded-xl border border-emerald-800 space-y-1 mt-1">
           <Text className="text-xs text-white">
-            ✉️ Email: <Text className="font-bold text-emerald-300">support@alipo.co.mw</Text>
+            ✉️ Email: <Text className="font-bold text-emerald-300">info@wekode.dev</Text>
           </Text>
           <Text className="text-xs text-white">
             💬 WhatsApp Bot: <Text className="font-bold text-emerald-300">+27 68 602 1556</Text>
