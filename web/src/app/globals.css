@@ -69,6 +69,24 @@ button { cursor: pointer; }
   box-shadow: 0 2px 7px rgba(3, 46, 32, .3);
 }
 
+.alipo-user-location-icon { background: transparent; border: 0; }
+.alipo-user-location-dot {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 9999px;
+  background: rgba(75, 154, 209, .24);
+  box-shadow: 0 2px 9px rgba(3, 46, 32, .28);
+}
+.alipo-user-location-dot span {
+  width: 12px;
+  height: 12px;
+  border: 2px solid white;
+  border-radius: 9999px;
+  background: #1769aa;
+}
+
 .report-modal { display: none; }
 .report-modal-open,
 .report-modal:target { display: grid; }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { LocateFixed, RefreshCw } from 'lucide-react';
 import { Station } from '@/types/alipo';
 import { DEFAULT_LOCATION, getBrandColor } from '@/lib/constants';
 
@@ -31,7 +31,10 @@ export default function StationMap({
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<{ [id: string]: any }>({});
   const radiusCircleRef = useRef<any>(null);
+  const userMarkerRef = useRef<any>(null);
+  const accuracyCircleRef = useRef<any>(null);
   const [tilesLoading, setTilesLoading] = useState(true);
+  const [locationState, setLocationState] = useState<'idle' | 'locating' | 'found' | 'error'>('idle');
 
   useEffect(() => {
     if (typeof window === 'undefined' || !mapContainerRef.current) return;
@@ -197,9 +200,65 @@ export default function StationMap({
     }
   }, [selectedStation]);
 
+  const showUserLocation = () => {
+    if (!navigator.geolocation || !mapInstanceRef.current) {
+      setLocationState('error');
+      return;
+    }
+
+    setLocationState('locating');
+    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      const map = mapInstanceRef.current;
+      if (!map) return;
+      const L = (await import('leaflet')).default;
+      const position: [number, number] = [coords.latitude, coords.longitude];
+
+      if (!userMarkerRef.current) {
+        userMarkerRef.current = L.marker(position, {
+          zIndexOffset: 1000,
+          icon: L.divIcon({
+            className: 'alipo-user-location-icon',
+            html: '<span class="alipo-user-location-dot"><span></span></span>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          }),
+        }).bindPopup('<strong>Your location</strong>').addTo(map);
+      } else {
+        userMarkerRef.current.setLatLng(position);
+      }
+
+      if (!accuracyCircleRef.current) {
+        accuracyCircleRef.current = L.circle(position, {
+          radius: Math.max(coords.accuracy, 20),
+          color: '#1769aa',
+          weight: 1,
+          fillColor: '#4b9ad1',
+          fillOpacity: 0.12,
+          interactive: false,
+        }).addTo(map);
+      } else {
+        accuracyCircleRef.current.setLatLng(position).setRadius(Math.max(coords.accuracy, 20));
+      }
+
+      if (hasRenderableSize(map)) map.flyTo(position, Math.max(map.getZoom(), 14), { duration: 0.6 });
+      setLocationState('found');
+    }, () => setLocationState('error'), {
+      enableHighAccuracy: true,
+      timeout: 12_000,
+      maximumAge: 60_000,
+    });
+  };
+
   return (
     <div className="relative h-full min-h-[610px] w-full overflow-hidden">
       <div ref={mapContainerRef} className="w-full h-full" />
+      <div className="absolute right-3 top-3 z-[600] flex flex-col items-end gap-2">
+        <button type="button" onClick={showUserLocation} disabled={locationState === 'locating'} className="inline-flex h-10 items-center gap-2 border border-forest/15 bg-white px-3 text-xs font-black text-forest shadow-lg transition hover:bg-ivory disabled:opacity-70" aria-label="Show my location">
+          {locationState === 'locating' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+          {locationState === 'locating' ? 'Locating…' : locationState === 'found' ? 'Located' : 'My location'}
+        </button>
+        {locationState === 'error' ? <p role="status" className="max-w-52 border border-[#c9583c]/25 bg-ivory px-3 py-2 text-[10px] font-bold leading-4 text-[#9d321d] shadow">Location unavailable. Check browser permission and try again.</p> : null}
+      </div>
       <div className={`pointer-events-none absolute inset-0 z-[500] grid place-items-center bg-[#dce2d6]/90 transition-opacity duration-200 ${tilesLoading ? 'opacity-100' : 'opacity-0'}`} aria-hidden={!tilesLoading}>
         <div className="border border-forest/15 bg-ivory px-5 py-4 text-center shadow-lg">
           <RefreshCw className="mx-auto h-5 w-5 animate-spin text-orange" />
