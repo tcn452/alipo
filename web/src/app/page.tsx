@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { ArrowRight, CheckCircle2, CircleAlert, Info, List, LocateFixed, Map as MapIcon, MapPin, RefreshCw, Search, XCircle } from 'lucide-react';
+import { ArrowRight, Bell, CheckCircle2, CircleAlert, Info, List, LocateFixed, Map as MapIcon, MapPin, RefreshCw, Search, XCircle } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
@@ -19,6 +19,10 @@ const StationMap = dynamic(() => import('@/components/map/StationMap'), {
 
 const STATUS_FILTERS = [{ id: 'all', label: 'All reports' }, { id: 'available', label: 'Available' }, { id: 'low', label: 'Low supply' }, { id: 'out', label: 'No fuel' }, { id: 'stale', label: 'Stale' }];
 const STATION_ARRIVAL_RADIUS_METRES = 120;
+const STATION_ALERT_DWELL_MS = 60_000;
+const STATION_ALERT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+const STATION_ALERTS_KEY = 'alipo-station-alerts-enabled';
+const STATION_ALERT_HISTORY_KEY = 'alipo-station-alert-history';
 
 function isInMalawi(latitude: number, longitude: number) {
   return latitude >= -17.2 && latitude <= -9.2 && longitude >= 32.65 && longitude <= 35.95;
@@ -113,6 +117,8 @@ export default function HomePage() {
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [locationState, setLocationState] = useState<'idle' | 'locating' | 'active' | 'outside' | 'error'>('idle');
   const [dismissedArrivalStationId, setDismissedArrivalStationId] = useState<string | null>(null);
+  const [stationAlertsEnabled, setStationAlertsEnabled] = useState(false);
+  const [notificationState, setNotificationState] = useState<'ready' | 'unsupported' | 'denied'>('ready');
   const stationRequestRef = useRef(0);
   const mapSectionRef = useRef<HTMLDivElement>(null);
   const locationWatchRef = useRef<number | null>(null);
@@ -188,6 +194,36 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+      setNotificationState('unsupported');
+      return;
+    }
+    setNotificationState(Notification.permission === 'denied' ? 'denied' : 'ready');
+    setStationAlertsEnabled(Notification.permission === 'granted' && localStorage.getItem(STATION_ALERTS_KEY) === 'true');
+  }, []);
+
+  const toggleStationAlerts = useCallback(async () => {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+      setNotificationState('unsupported');
+      return;
+    }
+    if (stationAlertsEnabled) {
+      localStorage.setItem(STATION_ALERTS_KEY, 'false');
+      setStationAlertsEnabled(false);
+      return;
+    }
+    const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+    if (permission !== 'granted') {
+      setNotificationState(permission === 'denied' ? 'denied' : 'ready');
+      return;
+    }
+    await navigator.serviceWorker.ready;
+    localStorage.setItem(STATION_ALERTS_KEY, 'true');
+    setNotificationState('ready');
+    setStationAlertsEnabled(true);
+  }, [stationAlertsEnabled]);
+
+  useEffect(() => {
     void fetchStations();
   }, [fetchStations]);
 
@@ -225,6 +261,44 @@ export default function HomePage() {
     if (nearbyStation?.station.id !== dismissedArrivalStationId) setDismissedArrivalStationId(null);
   }, [dismissedArrivalStationId, nearbyStation?.station.id]);
 
+  useEffect(() => {
+    if (!stationAlertsEnabled || !nearbyStation || !('serviceWorker' in navigator)) return;
+    const { station } = nearbyStation;
+    const timer = window.setTimeout(async () => {
+      let history: Record<string, number> = {};
+      try { history = JSON.parse(localStorage.getItem(STATION_ALERT_HISTORY_KEY) || '{}') as Record<string, number>; } catch { history = {}; }
+      if (Date.now() - (history[station.id] || 0) < STATION_ALERT_COOLDOWN_MS) return;
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(t('Are you at {station}?', { station: station.name }), {
+        body: t('When safely parked, help other drivers with a quick fuel report.'),
+        icon: '/icon-192.png',
+        badge: '/favicon.png',
+        tag: `station-arrival-${station.id}`,
+        data: { stationId: station.id },
+      });
+      localStorage.setItem(STATION_ALERT_HISTORY_KEY, JSON.stringify({ ...history, [station.id]: Date.now() }));
+    }, STATION_ALERT_DWELL_MS);
+    return () => window.clearTimeout(timer);
+  }, [nearbyStation, stationAlertsEnabled, t]);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const openStationReport = (stationId?: string) => {
+      const station = stations.find((item) => item.id === stationId);
+      if (!station) return false;
+      setSelectedStation(station);
+      setIsReportModalOpen(true);
+      return true;
+    };
+    const handleMessage = (event: MessageEvent<{ type?: string; stationId?: string }>) => {
+      if (event.data?.type === 'OPEN_STATION_REPORT') openStationReport(event.data.stationId);
+    };
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    const stationId = new URL(window.location.href).searchParams.get('reportStation');
+    if (stationId && openStationReport(stationId)) window.history.replaceState(null, '', window.location.pathname);
+    return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
+  }, [stations]);
+
   const mapCenter = selectedCity === 'My Location' && userLocation ? userLocation : (CITY_CENTERS[selectedCity] || CITY_CENTERS['All Cities']);
   const stats = useMemo(() => {
     const statusFor = (station: Station) => selectedFuel === 'petrol' ? station.petrol_status : selectedFuel === 'diesel' ? station.diesel_status : station.latest_status;
@@ -259,9 +333,9 @@ export default function HomePage() {
           <div className="mx-auto max-w-[1440px] px-4 py-4 sm:px-8 lg:px-12">
             <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_auto] lg:items-center">
               <label className="relative block"><Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><span className="sr-only">{t('Search station or area')}</span><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t('Search station or area')} className="h-12 w-full border border-line bg-white pl-11 pr-4 text-sm outline-none transition focus:border-forest focus:ring-2 focus:ring-forest/10" /></label>
-              <div className="no-scrollbar flex gap-2 overflow-x-auto"><button type="button" onClick={activateLocation} disabled={locationState === 'locating'} className={`inline-flex h-10 items-center gap-2 whitespace-nowrap px-4 text-xs font-bold transition ${selectedCity === 'My Location' ? 'bg-orange text-white' : 'border border-orange/40 bg-white text-forest hover:border-orange'} disabled:opacity-60`}><LocateFixed className={`h-4 w-4 ${locationState === 'locating' ? 'animate-pulse' : ''}`} />{t(locationState === 'locating' ? 'Finding you…' : locationState === 'active' ? 'Near me' : 'Use my location')}</button><select aria-label={t('Search radius')} value={radiusKm} onChange={(event) => { setSelectedStation(null); setRadiusKm(Number(event.target.value)); }} disabled={selectedCity === 'All Cities'} className="h-10 shrink-0 border border-line bg-white px-3 text-xs font-black text-forest disabled:hidden lg:hidden">{[5, 10, 20, 30, 50].map((radius) => <option key={radius} value={radius}>{radius} km</option>)}</select>{CITIES.map((city) => <button key={city} onClick={() => { setSelectedStation(null); setSelectedCity(city); }} className={`h-10 whitespace-nowrap px-4 text-xs font-bold transition ${selectedCity === city ? 'bg-forest text-white' : 'border border-line bg-white text-ink hover:border-forest'}`}>{city === 'All Cities' ? t('All Malawi') : city}</button>)}</div>
+              <div className="no-scrollbar flex gap-2 overflow-x-auto"><button type="button" onClick={activateLocation} disabled={locationState === 'locating'} className={`inline-flex h-10 items-center gap-2 whitespace-nowrap px-4 text-xs font-bold transition ${selectedCity === 'My Location' ? 'bg-orange text-white' : 'border border-orange/40 bg-white text-forest hover:border-orange'} disabled:opacity-60`}><LocateFixed className={`h-4 w-4 ${locationState === 'locating' ? 'animate-pulse' : ''}`} />{t(locationState === 'locating' ? 'Finding you…' : locationState === 'active' ? 'Near me' : 'Use my location')}</button>{notificationState !== 'unsupported' ? <button type="button" onClick={() => { void toggleStationAlerts(); }} aria-pressed={stationAlertsEnabled} className={`inline-flex h-10 items-center gap-2 whitespace-nowrap px-4 text-xs font-bold transition ${stationAlertsEnabled ? 'bg-forest text-white' : 'border border-line bg-white text-forest hover:border-forest'}`}><Bell className="h-4 w-4" />{t(stationAlertsEnabled ? 'Alerts on' : 'Station alerts')}</button> : null}<select aria-label={t('Search radius')} value={radiusKm} onChange={(event) => { setSelectedStation(null); setRadiusKm(Number(event.target.value)); }} disabled={selectedCity === 'All Cities'} className="h-10 shrink-0 border border-line bg-white px-3 text-xs font-black text-forest disabled:hidden lg:hidden">{[5, 10, 20, 30, 50].map((radius) => <option key={radius} value={radius}>{radius} km</option>)}</select>{CITIES.map((city) => <button key={city} onClick={() => { setSelectedStation(null); setSelectedCity(city); }} className={`h-10 whitespace-nowrap px-4 text-xs font-bold transition ${selectedCity === city ? 'bg-forest text-white' : 'border border-line bg-white text-ink hover:border-forest'}`}>{city === 'All Cities' ? t('All Malawi') : city}</button>)}</div>
             </div>
-            {locationState === 'outside' ? <p role="status" className="mt-3 border-l-2 border-orange pl-3 text-xs font-bold text-muted">{t('Your location is outside Malawi, so the national map is shown.')}</p> : locationState === 'error' ? <p role="status" className="mt-3 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">{t('Location unavailable. Allow location access in your browser and try again.')}</p> : null}
+            {locationState === 'outside' ? <p role="status" className="mt-3 border-l-2 border-orange pl-3 text-xs font-bold text-muted">{t('Your location is outside Malawi, so the national map is shown.')}</p> : locationState === 'error' ? <p role="status" className="mt-3 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">{t('Location unavailable. Allow location access in your browser and try again.')}</p> : notificationState === 'denied' ? <p role="status" className="mt-3 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">{t('Notifications are blocked. Enable them in your browser settings to use station alerts.')}</p> : null}
             <div className="mt-3 grid gap-2 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-3">
               <div className="flex min-w-0 items-center gap-2"><div className="flex min-w-0 flex-1 border border-line bg-white lg:flex-none" aria-label={t('Fuel type filter')}>{(['all', 'petrol', 'diesel'] as const).map((fuel) => <button key={fuel} type="button" onClick={() => { setSelectedStation(null); setSelectedFuel(fuel); }} aria-pressed={selectedFuel === fuel} className={`h-10 min-w-0 flex-1 whitespace-nowrap px-3 text-[10px] font-black uppercase transition lg:flex-none ${selectedFuel === fuel ? 'bg-orange text-white' : 'text-muted hover:text-forest'}`}>{t(fuel === 'all' ? 'All' : fuel === 'petrol' ? 'Petrol' : 'Diesel')}</button>)}</div><div className="flex shrink-0 border border-line bg-white lg:hidden"><button aria-label={t('Show station list')} onClick={() => setActiveTab('list')} className={`grid h-10 w-11 place-items-center ${activeTab === 'list' ? 'bg-forest text-white' : 'text-muted'}`}><List className="h-4 w-4" /></button><button aria-label={t('Show map')} onClick={showMap} className={`grid h-10 w-11 place-items-center ${activeTab === 'map' ? 'bg-forest text-white' : 'text-muted'}`}><MapIcon className="h-4 w-4" /></button></div></div>
               <div className="no-scrollbar flex min-w-0 gap-1 overflow-x-auto border-y border-line/70 py-1 lg:border-0 lg:py-0">{STATUS_FILTERS.map((filter) => <button key={filter.id} onClick={() => setSelectedStatus(filter.id)} aria-pressed={selectedStatus === filter.id} className={`inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap px-3 text-xs font-bold transition ${selectedStatus === filter.id ? 'bg-[#dfead7] text-forest' : 'text-muted hover:bg-white'}`}>{filter.id !== 'all' && <span className={`h-2 w-2 rounded-full ${filter.id === 'available' ? 'bg-[#398151]' : filter.id === 'low' ? 'bg-[#df972f]' : filter.id === 'stale' ? 'bg-[#795548]' : 'bg-[#c9583c]'}`} />}{t(filter.label)}</button>)}</div>

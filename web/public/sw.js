@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alipo-shell-v2';
+const CACHE_NAME = 'alipo-shell-v3';
 const APP_SHELL = ['/', '/manifest.json', '/favicon.png', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -32,5 +32,23 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/')))
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const stationId = event.notification.data?.stationId;
+  const reportUrl = stationId ? `/?reportStation=${encodeURIComponent(stationId)}` : '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
+      const client = clients[0];
+      if (client) {
+        await client.focus();
+        client.postMessage({ type: 'OPEN_STATION_REPORT', stationId });
+        return;
+      }
+      await self.clients.openWindow(reportUrl);
+    })
   );
 });
