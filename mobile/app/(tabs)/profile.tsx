@@ -86,7 +86,7 @@ export default function ProfileScreen() {
             📞 USSD Code: <Text className="font-bold text-emerald-300">*384*265#</Text>
           </Text>
           <Text className="text-xs text-white">
-            💬 WhatsApp Bot: <Text className="font-bold text-emerald-300">+265 888 000 100</Text>
+            💬 WhatsApp Bot: <Text className="font-bold text-emerald-300">+27 68 602 1556</Text>
           </Text>
           <Text className="text-xs text-white">
             🌐 Web Map: <Text className="font-bold text-emerald-300">alipo.vercel.app</Text>
