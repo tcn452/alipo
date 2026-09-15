@@ -75,15 +75,15 @@ export default function ProfileScreen() {
         )}
       </View>
 
-      {/* Alternative Channels Info */}
+      {/* Support channels */}
       <View className="bg-emerald-900 p-5 rounded-2xl border border-emerald-800 text-white space-y-2">
-        <Text className="text-white font-bold text-sm">Offline Channels in Malawi</Text>
+        <Text className="text-white font-bold text-sm">Alipo Support</Text>
         <Text className="text-emerald-200 text-xs">
-          If you have no mobile internet data bundle, use:
+          Get help or share feedback through:
         </Text>
         <View className="bg-emerald-950/60 p-3 rounded-xl border border-emerald-800 space-y-1 mt-1">
           <Text className="text-xs text-white">
-            📞 USSD Code: <Text className="font-bold text-emerald-300">*384*265#</Text>
+            ✉️ Email: <Text className="font-bold text-emerald-300">support@alipo.co.mw</Text>
           </Text>
           <Text className="text-xs text-white">
             💬 WhatsApp Bot: <Text className="font-bold text-emerald-300">+27 68 602 1556</Text>
