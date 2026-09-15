@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Station } from '@/types/alipo';
-import { DEFAULT_LOCATION, getBrandColor } from '@/lib/constants';
+import { classifyStationBrand, DEFAULT_LOCATION, getBrandColor } from '@/lib/constants';
 import { loadMapLibre } from '@/lib/maplibre-client';
 import { useLanguage } from '@/lib/i18n';
 
@@ -168,7 +168,7 @@ export default function StationMap({ stations, selectedStation, onSelectStation,
         const selected = selectedStation?.id === station.id;
         element.style.width = selected ? '30px' : '24px';
         element.style.height = selected ? '30px' : '24px';
-        element.style.backgroundColor = getBrandColor(station.brand);
+        element.style.backgroundColor = getBrandColor(classifyStationBrand(station.name, station.brand));
         const popup = document.createElement('div');
         const title = document.createElement('strong');
         title.textContent = `${number}. ${station.name}`;

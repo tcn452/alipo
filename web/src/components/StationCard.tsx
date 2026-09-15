@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ArrowUpRight, ChevronDown, Clock3, History, MapPin, RefreshCw } from 'lucide-react';
-import { getBrandColor, QUEUE_LABELS, STATUS_CONFIG } from '@/lib/constants';
+import { classifyStationBrand, getBrandColor, QUEUE_LABELS, STATUS_CONFIG } from '@/lib/constants';
 import { Station, StationReportHistoryItem } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
@@ -13,7 +13,8 @@ export function StationCard({ station, stationNumber, onReportClick, onSelectSta
   const { t } = useLanguage();
   const status = STATUS_CONFIG[station.latest_status || 'unknown'] || STATUS_CONFIG.unknown;
   const queue = station.latest_queue ? QUEUE_LABELS[station.latest_queue] : null;
-  const brandColor = getBrandColor(station.brand);
+  const displayBrand = classifyStationBrand(station.name, station.brand);
+  const brandColor = getBrandColor(displayBrand);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<StationReportHistoryItem[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -40,7 +41,7 @@ export function StationCard({ station, stationNumber, onReportClick, onSelectSta
   return (
     <article onClick={() => onSelectStation?.(station)} className={`group cursor-pointer border bg-white p-4 transition ${isSelected ? 'border-forest shadow-[inset_4px_0_0_#06452f]' : 'border-line hover:border-[#97a491]'}`}>
       <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 gap-3"><span aria-label={`Station ${stationNumber}`} className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-black text-white shadow-sm" style={{ backgroundColor: brandColor }}>{stationNumber}</span><div className="min-w-0"><div className="mb-2 text-[10px] font-black uppercase tracking-[.14em] text-muted">{station.brand}</div><h3 className="truncate text-base font-black tracking-[-.02em] text-ink">{station.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {station.district}, {station.city}</p></div></div>
+        <div className="flex min-w-0 gap-3"><span aria-label={`Station ${stationNumber}`} className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-black text-white shadow-sm" style={{ backgroundColor: brandColor }}>{stationNumber}</span><div className="min-w-0"><div className="mb-2 text-[10px] font-black uppercase tracking-[.14em] text-muted">{displayBrand}</div><h3 className="truncate text-base font-black tracking-[-.02em] text-ink">{station.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {station.district}, {station.city}</p></div></div>
         <span className={`shrink-0 border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${status.color}`}>{t(status.label)}</span>
       </div>
 
