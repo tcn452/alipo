@@ -18,6 +18,7 @@ const CHICHEWA: Record<string, string> = {
   'Finding you…': 'Tikukupezani…', 'Near me': 'Pafupi ndi ine', 'Use my location': 'Gwiritsani malo anga', 'All Malawi': 'Malawi yonse',
   'Your location is outside Malawi, so the national map is shown.': 'Muli kunja kwa Malawi, choncho tikuwonetsa mapu a dziko lonse.',
   'Location unavailable. Allow location access in your browser and try again.': 'Malo anu sakupezeka. Lolani msakatuli kugwiritsa ntchito malo anu ndipo yesaninso.',
+  'You may be at this station': 'Mwina muli pa siteshoni iyi', 'away': 'kuchokera pano', 'Quick report': 'Lipoti lachangu', 'Dismiss station suggestion': 'Tsekani lingaliro la siteshoni',
   'All reports': 'Malipoti onse', 'All': 'Onse', 'All fuel': 'Mafuta onse', 'Fuel type filter': 'Sankhani mtundu wa mafuta', 'Fuel availability': 'Kupezeka kwa mafuta', 'Radius': 'Utali', 'Search radius': 'Utali wosakira', 'Show station list': 'Onetsani mndandanda wa malo', 'Show map': 'Onetsani mapu',
   'Malawi coverage': 'Madera a Malawi', 'Near your location': 'Pafupi ndi malo anu', '{city} coverage': 'Madera a {city}', '{count} fuel stations': 'Malo {count} ogulitsa mafuta', '{count} fuel stations within {radius} km': 'Malo {count} ogulitsa mafuta mkati mwa makilomita {radius}',
   'Refresh': 'Tsitsimutsani', 'Live Alipo station data. OpenStreetMap is used only where Alipo coverage is unavailable.': 'Deta ya malo a Alipo ya pompopompo. OpenStreetMap imagwiritsidwa ntchito kokha kumene deta ya Alipo kulibe.',

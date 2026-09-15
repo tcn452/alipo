@@ -18,9 +18,21 @@ const StationMap = dynamic(() => import('@/components/map/StationMap'), {
 });
 
 const STATUS_FILTERS = [{ id: 'all', label: 'All reports' }, { id: 'available', label: 'Available' }, { id: 'low', label: 'Low supply' }, { id: 'out', label: 'No fuel' }, { id: 'stale', label: 'Stale' }];
+const STATION_ARRIVAL_RADIUS_METRES = 120;
 
 function isInMalawi(latitude: number, longitude: number) {
   return latitude >= -17.2 && latitude <= -9.2 && longitude >= 32.65 && longitude <= 35.95;
+}
+
+function distanceInMetres(from: [number, number], station: Pick<Station, 'latitude' | 'longitude'>) {
+  const toRadians = (degrees: number) => degrees * Math.PI / 180;
+  const latitudeDelta = toRadians(station.latitude - from[0]);
+  const longitudeDelta = toRadians(station.longitude - from[1]);
+  const fromLatitude = toRadians(from[0]);
+  const toLatitude = toRadians(station.latitude);
+  const haversine = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+  return 6_371_000 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
 function stationFromSupabase(row: Record<string, unknown>): Station | null {
@@ -98,9 +110,13 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [radiusKm, setRadiusKm] = useState(5);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [locationState, setLocationState] = useState<'idle' | 'locating' | 'active' | 'outside' | 'error'>('idle');
+  const [dismissedArrivalStationId, setDismissedArrivalStationId] = useState<string | null>(null);
   const stationRequestRef = useRef(0);
   const mapSectionRef = useRef<HTMLDivElement>(null);
+  const locationWatchRef = useRef<number | null>(null);
+  const lastTrackedLocationRef = useRef<[number, number] | null>(null);
 
   const showMap = useCallback(() => {
     setSelectedStation(null);
@@ -142,19 +158,33 @@ export default function HomePage() {
   const activateLocation = useCallback(() => {
     if (!navigator.geolocation) return setLocationState('error');
     setLocationState('locating');
-    navigator.geolocation.getCurrentPosition(({ coords }) => {
+    if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+    const handlePosition = ({ coords }: GeolocationPosition) => {
       if (!isInMalawi(coords.latitude, coords.longitude)) {
         setUserLocation(null);
+        setLocationAccuracy(null);
         setSelectedStation(null);
         setSelectedCity('All Cities');
         setLocationState('outside');
         return;
       }
-      setUserLocation([coords.latitude, coords.longitude]);
-      setSelectedStation(null);
+      const nextLocation: [number, number] = [coords.latitude, coords.longitude];
+      const previousLocation = lastTrackedLocationRef.current;
+      setLocationAccuracy(coords.accuracy);
+      if (!previousLocation || distanceInMetres(nextLocation, { latitude: previousLocation[0], longitude: previousLocation[1] }) >= 250) {
+        lastTrackedLocationRef.current = nextLocation;
+        setUserLocation(nextLocation);
+      }
       setSelectedCity('My Location');
       setLocationState('active');
-    }, () => setLocationState('error'), { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 });
+    };
+    locationWatchRef.current = navigator.geolocation.watchPosition(handlePosition, () => {
+      setLocationState((current) => current === 'active' ? current : 'error');
+    }, { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 });
+  }, []);
+
+  useEffect(() => () => {
+    if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
   }, []);
 
   useEffect(() => {
@@ -180,6 +210,20 @@ export default function HomePage() {
     }
     return true;
   }), [stations, selectedFuel, selectedStatus, searchQuery]);
+
+  const nearbyStation = useMemo(() => {
+    if (locationState !== 'active' || !userLocation || !stations.length) return null;
+    const nearest = stations.reduce<{ station: Station; distance: number } | null>((closest, station) => {
+      const distance = distanceInMetres(userLocation, station);
+      return !closest || distance < closest.distance ? { station, distance } : closest;
+    }, null);
+    const reliableRadius = Math.min(200, Math.max(STATION_ARRIVAL_RADIUS_METRES, locationAccuracy || 0));
+    return nearest && nearest.distance <= reliableRadius ? nearest : null;
+  }, [locationAccuracy, locationState, stations, userLocation]);
+
+  useEffect(() => {
+    if (nearbyStation?.station.id !== dismissedArrivalStationId) setDismissedArrivalStationId(null);
+  }, [dismissedArrivalStationId, nearbyStation?.station.id]);
 
   const mapCenter = selectedCity === 'My Location' && userLocation ? userLocation : (CITY_CENTERS[selectedCity] || CITY_CENTERS['All Cities']);
   const stats = useMemo(() => {
@@ -226,6 +270,15 @@ export default function HomePage() {
           </div>
         </section>
 
+        {nearbyStation && nearbyStation.station.id !== dismissedArrivalStationId ? <section aria-live="polite" className="border-b border-[#bbd2ae] bg-[#e1edd9]">
+          <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-5 py-3 sm:px-8 lg:px-12">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest text-white"><MapPin className="h-5 w-5" /></div>
+            <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-[.14em] text-forest">{t('You may be at this station')}</p><p className="truncate text-sm font-black text-ink">{nearbyStation.station.name} · {Math.round(nearbyStation.distance)} m {t('away')}</p></div>
+            <button type="button" onClick={() => { setSelectedStation(nearbyStation.station); setIsReportModalOpen(true); }} className="shrink-0 bg-forest px-4 py-2.5 text-xs font-black text-white">{t('Quick report')}</button>
+            <button type="button" aria-label={t('Dismiss station suggestion')} onClick={() => setDismissedArrivalStationId(nearbyStation.station.id)} className="grid h-9 w-9 shrink-0 place-items-center text-forest"><XCircle className="h-5 w-5" /></button>
+          </div>
+        </section> : null}
+
         <section className="mx-auto grid max-w-[1440px] lg:min-h-[720px] lg:grid-cols-[440px_minmax(0,1fr)]">
           <aside className={`${activeTab === 'map' ? 'hidden lg:block' : 'block'} border-r border-line bg-[#f8f5ee] px-4 py-6 sm:px-8 lg:px-7`}>
             <div className="mb-3 flex items-end justify-between"><div><p className="eyebrow text-orange">{selectedCity === 'All Cities' ? t('Malawi coverage') : selectedCity === 'My Location' ? t('Near your location') : t('{city} coverage', { city: selectedCity })}</p><h2 className="mt-1 text-xl font-black tracking-[-.03em]">{t(selectedCity !== 'All Cities' ? '{count} fuel stations within {radius} km' : '{count} fuel stations', { count: filteredStations.length, radius: radiusKm })}</h2></div><button onClick={fetchStations} className="inline-flex items-center gap-2 text-xs font-bold text-forest"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> {t('Refresh')}</button></div>
@@ -237,9 +290,9 @@ export default function HomePage() {
             <StationMap stations={filteredStations} selectedStation={selectedStation} onSelectStation={setSelectedStation} onClearSelection={clearMapSelection} center={mapCenter} zoom={selectedCity === 'All Cities' ? 7 : selectedCity === 'My Location' ? 14.5 : 12} radiusKm={selectedCity === 'All Cities' ? undefined : radiusKm} userLocation={userLocation} focusUserLocation={selectedCity === 'My Location'} />
             {loading ? <div role="status" className="pointer-events-none absolute left-1/2 top-4 z-30 -translate-x-1/2 border border-forest/15 bg-ivory px-4 py-3 text-xs font-black text-forest shadow-lg"><span className="inline-flex items-center gap-2"><RefreshCw className="h-4 w-4 animate-spin text-orange" /> {t('Loading fuel stations…')}</span></div> : null}
             {selectedStation && <div className="absolute bottom-5 left-4 right-4 z-[400] border border-black/10 bg-white p-5 shadow-[0_24px_70px_rgba(5,48,33,.22)] sm:left-6 sm:right-auto sm:w-[410px]">
-              <div className="flex items-start justify-between gap-4"><div><div className="text-[11px] font-black uppercase tracking-[.14em] text-forest">{classifyStationBrand(selectedStation.name, selectedStation.brand)}</div><h3 className="mt-2 text-xl font-black tracking-[-.03em]">{selectedStation.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {selectedStation.district}, {selectedStation.city}</p></div><span className={`whitespace-nowrap px-3 py-1.5 text-xs font-black ${selectedStation.latest_status === 'available' ? 'bg-[#e1edd9] text-forest' : selectedStation.latest_status === 'stale' ? 'bg-[#f3ece8] text-[#795548]' : 'bg-[#eeeae1] text-muted'}`}>{selectedStation.latest_status === 'available' ? 'Fuel available' : selectedStation.latest_status === 'low' ? 'Low supply' : selectedStation.latest_status === 'out' ? 'No fuel' : selectedStation.latest_status === 'stale' ? 'Stale report' : 'Awaiting report'}</span></div>
-              <div className="mt-4 grid grid-cols-2 border-y border-line py-3 text-xs"><div><span className="block text-muted">Fuel types</span><strong className="capitalize">{selectedStation.fuel_types.join(' & ')}</strong></div><div><span className="block text-muted">Updated</span><strong><TimeAgo date={selectedStation.last_reported_at || selectedStation.updated} /></strong></div></div>
-              <a href="#report-fuel" onClick={() => setIsReportModalOpen(true)} className="mt-4 inline-flex w-full items-center justify-between bg-forest px-4 py-3 text-sm font-black text-white transition hover:bg-[#0b5940]">Report an update <ArrowRight className="h-4 w-4" /></a>
+              <div className="flex items-start justify-between gap-4"><div><div className="text-[11px] font-black uppercase tracking-[.14em] text-forest">{classifyStationBrand(selectedStation.name, selectedStation.brand)}</div><h3 className="mt-2 text-xl font-black tracking-[-.03em]">{selectedStation.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {selectedStation.district}, {selectedStation.city}</p></div><span className={`whitespace-nowrap px-3 py-1.5 text-xs font-black ${selectedStation.latest_status === 'available' ? 'bg-[#e1edd9] text-forest' : selectedStation.latest_status === 'stale' ? 'bg-[#f3ece8] text-[#795548]' : 'bg-[#eeeae1] text-muted'}`}>{t(selectedStation.latest_status === 'available' ? 'Fuel available' : selectedStation.latest_status === 'low' ? 'Low supply' : selectedStation.latest_status === 'out' ? 'No fuel' : selectedStation.latest_status === 'stale' ? 'Stale report' : 'Awaiting report')}</span></div>
+              <div className="mt-4 grid grid-cols-2 border-y border-line py-3 text-xs"><div><span className="block text-muted">{t('Fuel types')}</span><strong className="capitalize">{selectedStation.fuel_types.map((fuel) => t(fuel === 'petrol' ? 'Petrol' : 'Diesel')).join(' & ')}</strong></div><div><span className="block text-muted">{t('Updated')}</span><strong><TimeAgo date={selectedStation.last_reported_at || selectedStation.updated} /></strong></div></div>
+              <a href="#report-fuel" onClick={() => setIsReportModalOpen(true)} className="mt-4 inline-flex w-full items-center justify-between bg-forest px-4 py-3 text-sm font-black text-white transition hover:bg-[#0b5940]">{t('Report an update')} <ArrowRight className="h-4 w-4" /></a>
             </div>}
           </div>
         </section>
