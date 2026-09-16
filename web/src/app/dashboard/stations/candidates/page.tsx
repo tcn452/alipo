@@ -2,8 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { Check, ExternalLink, LocateFixed, MapPin, Plus, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import { StationGeocodingCandidate } from '@/types/alipo';
+
+const CandidateMapModal = dynamic(
+  () => import('@/components/map/CandidateMapModal').then((mod) => mod.CandidateMapModal),
+  { ssr: false }
+);
 
 type CandidateGroup = {
   key: string;
@@ -30,6 +36,7 @@ export default function StationCandidatesPage() {
   const [filter, setFilter] = useState<'all' | 'high' | 'review'>('all');
   const [phone, setPhone] = useState('');
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [activeMapGroup, setActiveMapGroup] = useState<CandidateGroup | null>(null);
 
   const locateUser = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -115,7 +122,8 @@ export default function StationCandidatesPage() {
     }
   };
 
-  return <main className="w-full max-w-7xl space-y-5 p-4 sm:p-6">
+  return (
+    <main className="w-full max-w-7xl space-y-5 p-4 sm:p-6">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-800"><ShieldCheck className="h-3.5 w-3.5" /> Community review</div>
@@ -149,7 +157,18 @@ export default function StationCandidatesPage() {
           </div>
 
           <div className="grid gap-3 p-5 sm:grid-cols-2">
-            <div className="rounded-xl bg-gray-50 p-4"><p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Proposed result</p><p className="mt-2 text-sm font-black text-gray-900">{c.result_name || c.source_name}</p><p className="mt-1 text-xs leading-5 text-gray-500">{c.result_address || `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)}`}</p><a href={`https://www.openstreetmap.org/?mlat=${c.latitude}&mlon=${c.longitude}#map=18/${c.latitude}/${c.longitude}`} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:underline"><MapPin className="h-3.5 w-3.5" /> View proposed pin <ExternalLink className="h-3 w-3" /></a></div>
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Proposed result</p>
+              <p className="mt-2 text-sm font-black text-gray-900">{c.result_name || c.source_name}</p>
+              <p className="mt-1 text-xs leading-5 text-gray-500">{c.result_address || `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)}`}</p>
+              <button
+                type="button"
+                onClick={() => setActiveMapGroup(group)}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50/80 px-3 py-1.5 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100 hover:border-emerald-700"
+              >
+                <MapPin className="h-3.5 w-3.5 text-emerald-700" /> View proposed pin on map
+              </button>
+            </div>
             <div className="rounded-xl bg-emerald-50 p-4"><p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Closest Alipo station</p><p className="mt-2 text-sm font-black text-gray-900">{c.nearest_station_name}</p><p className="mt-1 text-xs text-gray-600">{c.nearest_station_brand} · {Math.round(c.nearest_station_distance_m)} m away</p><p className="mt-3 text-[11px] font-semibold text-gray-500">{tooCloseToCreate ? 'Close enough that creating another pin could cause a duplicate.' : 'Far enough away to consider a new station.'}</p></div>
           </div>
 
@@ -163,5 +182,18 @@ export default function StationCandidatesPage() {
         </article>;
       })}
     </div>}
-  </main>;
+
+    <CandidateMapModal
+      candidate={activeMapGroup?.primary || null}
+      onClose={() => setActiveMapGroup(null)}
+      onReview={(action) => {
+        if (activeMapGroup) {
+          void review(activeMapGroup, action);
+          setActiveMapGroup(null);
+        }
+      }}
+      reviewDisabled={workingKey !== null}
+    />
+    </main>
+  );
 }

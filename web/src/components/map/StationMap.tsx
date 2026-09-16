@@ -10,7 +10,7 @@ import { useLanguage } from '@/lib/i18n';
 type MapLibreMap = any;
 type MapLibreMarker = any;
 
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+export const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const MALAWI_OVERVIEW: [number, number] = [34.3015, -13.2543];
 const MALAWI_OVERVIEW_ZOOM = 6.4;
 
@@ -38,7 +38,7 @@ function radiusGeoJson(center: [number, number], radiusKm: number) {
   };
 }
 
-function applyAlipoStyle(map: MapLibreMap) {
+export function applyAlipoStyle(map: MapLibreMap) {
   for (const layer of map.getStyle().layers || []) {
     const id = layer.id.toLowerCase();
     try {

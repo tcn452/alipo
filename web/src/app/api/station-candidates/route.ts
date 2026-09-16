@@ -10,12 +10,20 @@ export async function GET(request: Request) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) return Response.json({ error: 'Supabase server credentials are not configured.' }, { status: 503 });
 
-  const [{ data, error }, { data: votes, error: votesError }] = await Promise.all([
+  const [{ data, error }, { data: votes, error: votesError }, { data: allStations }] = await Promise.all([
     supabase.rpc('station_candidate_review_queue'),
     supabase.from('station_candidate_votes').select('source,source_record_id,action'),
+    supabase.rpc('all_stations'),
   ]);
   if (error) return Response.json({ error: 'Unable to load station candidates.' }, { status: 502 });
   if (votesError) return Response.json({ error: 'Unable to load station candidate votes.' }, { status: 502 });
+
+  const stationCoords = new Map<string, { latitude: number; longitude: number }>();
+  for (const s of (allStations || []) as { id?: string; latitude?: number; longitude?: number }[]) {
+    if (s.id && typeof s.latitude === 'number' && typeof s.longitude === 'number') {
+      stationCoords.set(String(s.id), { latitude: s.latitude, longitude: s.longitude });
+    }
+  }
 
   const voteCounts = new Map<string, { accept: number; create: number; reject: number }>();
   for (const vote of votes || []) {
@@ -26,10 +34,15 @@ export async function GET(request: Request) {
     voteCounts.set(key, counts);
   }
 
-  const candidates = (data || []).map((candidate: { source: string; source_record_id: string }) => ({
-    ...candidate,
-    vote_counts: voteCounts.get(`${candidate.source}:${candidate.source_record_id}`) || { accept: 0, create: 0, reject: 0 },
-  }));
+  const candidates = (data || []).map((candidate: { source: string; source_record_id: string; nearest_station_id?: string }) => {
+    const nearest = candidate.nearest_station_id ? stationCoords.get(String(candidate.nearest_station_id)) : undefined;
+    return {
+      ...candidate,
+      nearest_station_latitude: nearest?.latitude,
+      nearest_station_longitude: nearest?.longitude,
+      vote_counts: voteCounts.get(`${candidate.source}:${candidate.source_record_id}`) || { accept: 0, create: 0, reject: 0 },
+    };
+  });
   return Response.json({ candidates }, { headers: { 'Cache-Control': 'no-store' } });
 }
 

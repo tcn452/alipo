@@ -150,5 +150,7 @@ export interface StationGeocodingCandidate {
   nearest_station_name: string;
   nearest_station_brand: string;
   nearest_station_distance_m: number;
+  nearest_station_latitude?: number;
+  nearest_station_longitude?: number;
   vote_counts: { accept: number; create: number; reject: number };
 }
