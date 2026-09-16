@@ -15,8 +15,11 @@ export interface Station {
   fuel_types: ('petrol' | 'diesel')[];
   contact_phone?: string;
   latest_status?: FuelStatus;
+  is_stale?: boolean;
   petrol_status?: FuelStatus;
   diesel_status?: FuelStatus;
+  petrol_is_stale?: boolean;
+  diesel_is_stale?: boolean;
   petrol_reported_at?: string;
   diesel_reported_at?: string;
   latest_queue?: QueueEstimate;
@@ -126,4 +129,26 @@ export interface UserProfile {
   name?: string;
   role: 'consumer' | 'station_attendant' | 'fleet_admin' | 'fleet_dispatcher' | 'fleet_driver' | 'wekode_ops';
   company?: string;
+}
+
+export interface StationGeocodingCandidate {
+  id: number;
+  source: string;
+  source_record_id: string;
+  operator_name: string;
+  source_name: string;
+  source_city?: string;
+  source_address?: string;
+  provider: 'tomtom' | 'nominatim' | string;
+  result_name?: string;
+  result_address?: string;
+  confidence_score: number;
+  evidence: Record<string, boolean | number | string | null>;
+  latitude: number;
+  longitude: number;
+  nearest_station_id: string;
+  nearest_station_name: string;
+  nearest_station_brand: string;
+  nearest_station_distance_m: number;
+  vote_counts: { accept: number; create: number; reject: number };
 }

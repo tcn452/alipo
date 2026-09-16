@@ -30,10 +30,10 @@ insert into public.fuel_reports (
   confirmations, confidence, is_active, expires_at, created_at
 )
 values
-  ('10000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000101', 'available', 'both', 'short', 'verified_station', 3, 0.900, true, now() + interval '3 hours', now()),
-  ('10000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000102', 'available', 'both', 'medium', 'verified_station', 2, 0.850, true, now() + interval '3 hours', now()),
-  ('10000000-0000-4000-8000-000000000103', '00000000-0000-4000-8000-000000000103', 'low', 'diesel', 'long', 'web', 1, 0.600, true, now() + interval '3 hours', now()),
-  ('10000000-0000-4000-8000-000000000401', '00000000-0000-4000-8000-000000000401', 'out', 'both', 'none', 'web', 2, 0.700, true, now() + interval '6 hours', now())
+  ('10000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000101', 'available', 'both', 'short', 'verified_station', 3, 0.900, true, now() + interval '12 hours', now()),
+  ('10000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000102', 'available', 'both', 'medium', 'verified_station', 2, 0.850, true, now() + interval '12 hours', now()),
+  ('10000000-0000-4000-8000-000000000103', '00000000-0000-4000-8000-000000000103', 'low', 'diesel', 'long', 'web', 1, 0.600, true, now() + interval '12 hours', now()),
+  ('10000000-0000-4000-8000-000000000401', '00000000-0000-4000-8000-000000000401', 'out', 'both', 'none', 'web', 2, 0.700, true, now() + interval '12 hours', now())
 on conflict (id) do update set
   status = excluded.status,
   fuel_type = excluded.fuel_type,

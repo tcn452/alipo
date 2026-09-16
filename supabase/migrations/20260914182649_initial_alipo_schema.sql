@@ -1,7 +1,6 @@
 create schema if not exists extensions;
 create schema if not exists private;
 create extension if not exists postgis with schema extensions;
-
 create type public.user_role as enum ('consumer', 'station_attendant', 'fleet_admin', 'fleet_dispatcher', 'fleet_driver', 'wekode_ops');
 create type public.company_type as enum ('logistics', 'ngo', 'delivery', 'government', 'other');
 create type public.billing_status as enum ('trial', 'active', 'overdue', 'cancelled');
@@ -12,7 +11,6 @@ create type public.fuel_type as enum ('petrol', 'diesel', 'both');
 create type public.report_source as enum ('ussd', 'whatsapp', 'web', 'verified_station');
 create type public.fraud_flag_type as enum ('impossible_travel', 'consumption_spike', 'frequency_anomaly');
 create type public.flag_severity as enum ('low', 'medium', 'high');
-
 create table public.companies (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 2 and 160),
@@ -22,7 +20,6 @@ create table public.companies (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   company_id uuid references public.companies(id) on delete set null,
@@ -33,7 +30,6 @@ create table public.profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
 create table public.stations (
   id uuid primary key default gen_random_uuid(),
   osm_type text check (osm_type in ('node', 'way', 'relation')),
@@ -60,7 +56,6 @@ create table public.stations (
     and fuel_types <@ array['petrol'::public.fuel_type, 'diesel'::public.fuel_type]
   )
 );
-
 create table public.fuel_reports (
   id uuid primary key default gen_random_uuid(),
   station_id uuid not null references public.stations(id) on delete restrict,
@@ -76,7 +71,6 @@ create table public.fuel_reports (
   expires_at timestamptz not null,
   created_at timestamptz not null default now()
 );
-
 create table public.vehicles (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
@@ -92,7 +86,6 @@ create table public.vehicles (
   updated_at timestamptz not null default now(),
   constraint vehicles_company_plate_unique unique (company_id, plate)
 );
-
 create table public.fuel_allocations (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
@@ -106,7 +99,6 @@ create table public.fuel_allocations (
   constraint fuel_allocations_period_valid check (period_end >= period_start),
   constraint fuel_allocations_vehicle_period_unique unique (vehicle_id, period_start, period_end)
 );
-
 create table public.refuel_events (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
@@ -118,7 +110,6 @@ create table public.refuel_events (
   odometer_km numeric(12,1) check (odometer_km is null or odometer_km >= 0),
   created_at timestamptz not null default now()
 );
-
 create table public.fraud_flags (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
@@ -133,7 +124,6 @@ create table public.fraud_flags (
   created_at timestamptz not null default now(),
   constraint fraud_flags_resolution_valid check ((not resolved and resolved_at is null) or resolved)
 );
-
 create index stations_location_gix on public.stations using gist (location);
 create index stations_city_active_idx on public.stations (city) where active;
 create index stations_status_active_idx on public.stations (latest_status) where active;
@@ -145,7 +135,6 @@ create index fuel_allocations_company_period_idx on public.fuel_allocations (com
 create index refuel_events_company_created_idx on public.refuel_events (company_id, created_at desc);
 create index refuel_events_vehicle_created_idx on public.refuel_events (vehicle_id, created_at desc);
 create index fraud_flags_company_open_idx on public.fraud_flags (company_id, created_at desc) where not resolved;
-
 create function private.set_updated_at()
 returns trigger
 language plpgsql
@@ -156,13 +145,11 @@ begin
   return new;
 end;
 $$;
-
 create trigger companies_set_updated_at before update on public.companies for each row execute function private.set_updated_at();
 create trigger profiles_set_updated_at before update on public.profiles for each row execute function private.set_updated_at();
 create trigger stations_set_updated_at before update on public.stations for each row execute function private.set_updated_at();
 create trigger vehicles_set_updated_at before update on public.vehicles for each row execute function private.set_updated_at();
 create trigger fuel_allocations_set_updated_at before update on public.fuel_allocations for each row execute function private.set_updated_at();
-
 create function private.handle_new_user()
 returns trigger
 language plpgsql
@@ -176,11 +163,9 @@ begin
   return new;
 end;
 $$;
-
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function private.handle_new_user();
-
 create function private.is_ops()
 returns boolean
 language sql
@@ -189,7 +174,6 @@ set search_path = ''
 as $$
   select coalesce((select auth.jwt() -> 'app_metadata' ->> 'role' = 'wekode_ops'), false)
 $$;
-
 create function private.current_company_id()
 returns uuid
 language sql
@@ -199,7 +183,6 @@ set search_path = ''
 as $$
   select company_id from public.profiles where id = (select auth.uid())
 $$;
-
 create function private.is_company_manager()
 returns boolean
 language sql
@@ -213,7 +196,6 @@ as $$
       and role in ('fleet_admin', 'fleet_dispatcher', 'wekode_ops')
   )
 $$;
-
 create function private.prepare_fuel_report()
 returns trigger
 language plpgsql
@@ -224,11 +206,9 @@ begin
   return new;
 end;
 $$;
-
 create trigger fuel_reports_prepare
 before insert on public.fuel_reports
 for each row execute function private.prepare_fuel_report();
-
 create function private.apply_fuel_report()
 returns trigger
 language plpgsql
@@ -244,11 +224,9 @@ begin
   return new;
 end;
 $$;
-
 create trigger fuel_reports_apply_status
 after insert on public.fuel_reports
 for each row execute function private.apply_fuel_report();
-
 create function private.expire_stale_reports()
 returns integer
 language plpgsql
@@ -286,7 +264,6 @@ begin
   return expired_count;
 end;
 $$;
-
 create function public.nearby_stations(p_latitude double precision, p_longitude double precision, p_radius_km double precision default 10)
 returns table (
   id uuid,
@@ -334,7 +311,6 @@ as $$
     )
   order by distance_km;
 $$;
-
 alter table public.companies enable row level security;
 alter table public.profiles enable row level security;
 alter table public.stations enable row level security;
@@ -343,10 +319,8 @@ alter table public.vehicles enable row level security;
 alter table public.fuel_allocations enable row level security;
 alter table public.refuel_events enable row level security;
 alter table public.fraud_flags enable row level security;
-
 create policy "stations are publicly readable" on public.stations for select to anon, authenticated using (active);
 create policy "ops manage stations" on public.stations for all to authenticated using ((select private.is_ops())) with check ((select private.is_ops()));
-
 create policy "anonymous users submit web reports" on public.fuel_reports for insert to anon
 with check (reporter_id is null and source = 'web');
 create policy "authenticated users submit their own web reports" on public.fuel_reports for insert to authenticated
@@ -356,16 +330,13 @@ using (reporter_id = (select auth.uid()) or (select private.is_ops()));
 create policy "ops manage reports" on public.fuel_reports for update to authenticated
 using ((select private.is_ops())) with check ((select private.is_ops()));
 create policy "ops delete reports" on public.fuel_reports for delete to authenticated using ((select private.is_ops()));
-
 create policy "users read their profile" on public.profiles for select to authenticated using (id = (select auth.uid()) or (select private.is_ops()));
 create policy "users update their profile" on public.profiles for update to authenticated
 using (id = (select auth.uid())) with check (id = (select auth.uid()));
-
 create policy "company members read company" on public.companies for select to authenticated
 using (id = (select private.current_company_id()) or (select private.is_ops()));
 create policy "ops manage companies" on public.companies for all to authenticated
 using ((select private.is_ops())) with check ((select private.is_ops()));
-
 create policy "company members read vehicles" on public.vehicles for select to authenticated
 using (company_id = (select private.current_company_id()) or (select private.is_ops()));
 create policy "company managers create vehicles" on public.vehicles for insert to authenticated
@@ -375,7 +346,6 @@ using ((company_id = (select private.current_company_id()) and (select private.i
 with check ((company_id = (select private.current_company_id()) and (select private.is_company_manager())) or (select private.is_ops()));
 create policy "company managers delete vehicles" on public.vehicles for delete to authenticated
 using ((company_id = (select private.current_company_id()) and (select private.is_company_manager())) or (select private.is_ops()));
-
 create policy "company members read allocations" on public.fuel_allocations for select to authenticated
 using (company_id = (select private.current_company_id()) or (select private.is_ops()));
 create policy "company managers manage allocations" on public.fuel_allocations for all to authenticated
@@ -398,7 +368,6 @@ using (company_id = (select private.current_company_id()) or (select private.is_
 create policy "company managers update flags" on public.fraud_flags for update to authenticated
 using ((company_id = (select private.current_company_id()) and (select private.is_company_manager())) or (select private.is_ops()))
 with check ((company_id = (select private.current_company_id()) and (select private.is_company_manager())) or (select private.is_ops()));
-
 revoke all on all tables in schema public from anon, authenticated;
 grant select on public.stations to anon, authenticated;
 grant insert on public.fuel_reports to anon, authenticated;
@@ -413,7 +382,6 @@ grant execute on function private.is_ops() to anon, authenticated;
 grant execute on function private.current_company_id() to authenticated;
 grant execute on function private.is_company_manager() to authenticated;
 grant execute on function public.nearby_stations(double precision, double precision, double precision) to anon, authenticated;
-
 do $$
 begin
   if not exists (

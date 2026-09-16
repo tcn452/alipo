@@ -35,6 +35,5 @@ as $$
   where s.active
   order by s.city, s.name;
 $$;
-
 revoke all on function public.all_stations() from public;
 grant execute on function public.all_stations() to anon, authenticated;

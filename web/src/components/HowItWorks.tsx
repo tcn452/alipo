@@ -56,7 +56,7 @@ export function HowItWorks({ isOpen, onClose }: HowItWorksProps) {
             <div><p className="text-[10px] font-black uppercase tracking-[.14em] text-orange">{t('Step {number}', { number: index + 1 })}</p><h3 className="mt-1 text-base font-black text-ink">{t(title)}</h3><p className="mt-1 text-sm leading-5 text-muted">{t(detail)}</p></div>
           </li>)}
         </ol>
-        <div className="mt-2 bg-[#eee9dd] px-4 py-4 text-ink"><p className="text-sm font-black">{t("Powered by Malawi's community")}</p><p className="mt-1 text-xs leading-5">{t('Alipo uses crowdsourced information shared by drivers and communities across Malawi. Thank you for helping us build and improve it.')}</p><p className="mt-2 text-[11px] leading-4 text-muted">{t('Community reports expire after four hours so drivers can trust that updates are recent.')}</p></div>
+        <div className="mt-2 bg-[#eee9dd] px-4 py-4 text-ink"><p className="text-sm font-black">{t("Powered by Malawi's community")}</p><p className="mt-1 text-xs leading-5">{t('Alipo uses crowdsourced information shared by drivers and communities across Malawi. Thank you for helping us build and improve it.')}</p><p className="mt-2 text-[11px] leading-4 text-muted">{t('Community reports become stale after four hours and are removed after twelve hours.')}</p></div>
         <a href="#find-fuel" onClick={onClose} className="mt-5 inline-flex min-h-12 w-full items-center justify-between bg-orange px-4 text-sm font-black text-white transition hover:bg-[#d95a1c] focus:outline-none focus:ring-2 focus:ring-forest focus:ring-offset-2">{t('Start finding fuel')} <ArrowRight className="h-4 w-4" /></a>
       </div>
     </aside>

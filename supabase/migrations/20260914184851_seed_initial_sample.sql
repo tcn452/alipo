@@ -24,7 +24,6 @@ on conflict (id) do update set
   latest_queue = excluded.latest_queue,
   last_reported_at = excluded.last_reported_at,
   active = excluded.active;
-
 insert into public.fuel_reports (
   id, station_id, status, fuel_type, queue_estimate, source,
   confirmations, confidence, is_active, expires_at, created_at
@@ -43,11 +42,9 @@ on conflict (id) do update set
   is_active = excluded.is_active,
   expires_at = excluded.expires_at,
   created_at = excluded.created_at;
-
 insert into public.companies (id, name, type, billing_status, plan)
 values ('20000000-0000-4000-8000-000000000001', 'Alipo Demo Fleet', 'logistics', 'trial', 'starter')
 on conflict (id) do update set name = excluded.name, type = excluded.type, billing_status = excluded.billing_status, plan = excluded.plan;
-
 insert into public.vehicles (id, company_id, plate, assigned_driver_name, fuel_type, tank_capacity_litres)
 values ('30000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'ALIPO 01', 'Demo Driver', 'diesel', 70)
 on conflict (id) do update set company_id = excluded.company_id, plate = excluded.plate, assigned_driver_name = excluded.assigned_driver_name, fuel_type = excluded.fuel_type, tank_capacity_litres = excluded.tank_capacity_litres;
