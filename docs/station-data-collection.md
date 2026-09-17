@@ -160,3 +160,24 @@ Once candidates are populated into `public.station_geocoding_candidates`, operat
    * **Accept Match**: Links the candidate to the existing station.
    * **Create Live Station**: Immediately inserts the candidate as a new active station in `public.stations`.
    * **Reject**: Closes the candidate without modifying stations.
+
+---
+
+## 7. Official Brand Catalogue Audits & Metadata Enrichment
+
+To ensure maximum coverage and data fidelity, Alipo reconciles OpenStreetMap data against official retailer locator directories:
+
+### TotalEnergies Malawi (71 Stations)
+* **Coverage**: 100% of the 71 TotalEnergies retail stations mapped and live.
+* **Provenance**: Stored under `source = 'totalenergies_mw'` in `public.station_sources`.
+
+### Puma Energy Malawi (62 Stations)
+* **Coverage**: 62 active Puma retail stations, including 27 high-confidence highway and district stations promoted with spatial threshold validation (>75m isolation).
+* **Provenance**: Stored under `source = 'puma_energy_mw'` in `public.station_sources`.
+
+### Petroda Malawi (28 Catalogue Stations + 6 Regional Outlets)
+* **Coverage**: 100% of Petroda Malawi's 28 official stations mapped and verified in `public.stations` (34 total active Petroda stations).
+* **Unmapped Additions**: Added missing critical stations (e.g. `Petroda Mbayani` in Blantyre, `Petroda Area 46` along the Lilongwe bypass, `Petroda Mchinji`, `Petroda Mzuzu`, `Petroda Mzimba`, `Petroda Karonga`).
+* **Name & Metadata Enrichment**: Generic tags (e.g. `brand = 'Independent'`, `city = 'Malawi'`, names like `"Petroda"` or `"Fuel station"`) were enriched with official retail station titles, specific districts, and street addresses (e.g. `Petroda Clock Tower`, `Petroda Munif Limbe`, `Petroda Tsiranana`, `Petroda Mandala`, `Petroda Kameza`, `Petroda Biwi`, `Petroda Bunda`, `Petroda Area 25`, `Petroda Area 4`, `Petroda Area 43`, `Petroda Area 47`, `Petroda Salima Boma`, `Petroda Kasungu Chankhanga`, `Petroda Ntcheu`, `Petroda Balaka`, `Petroda Liwonde`, `Petroda Mangochi`, `Petroda Luchenza`, `Petroda Mwanza`).
+* **Deduplication**: Clustered sub-25m duplicate nodes (e.g. Limbe Churchill Rd, Biwi Triangle, Salima Turn Off) were retired (`active = false`) to keep the map clean and prevent duplicate station pins.
+* **Provenance**: 100% linked in `public.station_sources` (`source = 'petroda_mw'`) and marked `review_status = 'accepted'` in `public.station_geocoding_candidates`.
