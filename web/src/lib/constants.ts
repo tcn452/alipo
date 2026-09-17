@@ -120,3 +120,26 @@ export const STATUS_CONFIG: Record<string, { label: string; color: string; badge
     dot: 'bg-[#795548]'
   }
 };
+
+export type StationStockStatus = 'out_of_fuel' | 'petrol_only' | 'diesel_only' | 'fuel_in_stock';
+
+export const STATION_STOCK_CONFIG: Record<StationStockStatus, { label: string; color: string }> = {
+  out_of_fuel: { label: 'Out of fuel', color: 'text-rose-700 bg-rose-50 border-rose-300' },
+  petrol_only: { label: 'Petrol only', color: 'text-orange-700 bg-orange-50 border-orange-300' },
+  diesel_only: { label: 'Diesel only', color: 'text-blue-700 bg-blue-50 border-blue-300' },
+  fuel_in_stock: { label: 'Fuel in stock', color: 'text-emerald-700 bg-emerald-50 border-emerald-300' },
+};
+
+export function getStationStockStatus(station: {
+  petrol_status?: string;
+  diesel_status?: string;
+}): StationStockStatus | null {
+  const petrolInStock = station.petrol_status === 'available' || station.petrol_status === 'low';
+  const dieselInStock = station.diesel_status === 'available' || station.diesel_status === 'low';
+
+  if (petrolInStock && dieselInStock) return 'fuel_in_stock';
+  if (petrolInStock) return 'petrol_only';
+  if (dieselInStock) return 'diesel_only';
+  if (station.petrol_status === 'out' && station.diesel_status === 'out') return 'out_of_fuel';
+  return null;
+}

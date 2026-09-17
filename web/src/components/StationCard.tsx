@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ArrowUpRight, ChevronDown, Clock3, History, MapPin, RefreshCw } from 'lucide-react';
-import { classifyStationBrand, getBrandColor, QUEUE_LABELS, STATUS_CONFIG } from '@/lib/constants';
+import { classifyStationBrand, getBrandColor, getStationStockStatus, QUEUE_LABELS, STATION_STOCK_CONFIG, STATUS_CONFIG } from '@/lib/constants';
 import { Station, StationReportHistoryItem } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
@@ -11,7 +11,8 @@ interface StationCardProps { station: Station; stationNumber: number; onReportCl
 
 export function StationCard({ station, stationNumber, onReportClick, onSelectStation, isSelected }: StationCardProps) {
   const { t } = useLanguage();
-  const status = STATUS_CONFIG[station.latest_status || 'unknown'] || STATUS_CONFIG.unknown;
+  const stockStatus = getStationStockStatus(station);
+  const status = stockStatus ? STATION_STOCK_CONFIG[stockStatus] : null;
   const queue = station.latest_queue ? QUEUE_LABELS[station.latest_queue] : null;
   const displayBrand = classifyStationBrand(station.name, station.brand);
   const brandColor = getBrandColor(displayBrand);
@@ -42,7 +43,7 @@ export function StationCard({ station, stationNumber, onReportClick, onSelectSta
     <article onClick={() => onSelectStation?.(station)} className={`group min-w-0 overflow-hidden border bg-white p-4 transition ${isSelected ? 'border-forest shadow-[inset_4px_0_0_#06452f]' : 'border-line hover:border-[#97a491]'}`}>
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3"><span aria-label={`Station ${stationNumber}`} className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-black text-white shadow-sm" style={{ backgroundColor: brandColor }}>{stationNumber}</span><div className="min-w-0"><div className="mb-2 text-[10px] font-black uppercase tracking-[.14em] text-muted">{displayBrand}</div><h3 className="truncate text-base font-black tracking-[-.02em] text-ink">{station.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {station.district}, {station.city}</p></div></div>
-        <div className="flex shrink-0 flex-col items-end gap-1"><span className={`border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${status.color}`}>{t(status.label)}</span>{station.is_stale ? <span className="bg-[#f3ece8] px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#795548]">{t('Stale')}</span> : null}</div>
+        <div className="flex shrink-0 flex-col items-end gap-1">{status ? <span className={`border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${status.color}`}>{t(status.label)}</span> : null}{station.is_stale ? <span className="bg-[#f3ece8] px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#795548]">{t('Stale')}</span> : null}</div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 border-y border-line py-3 text-xs">

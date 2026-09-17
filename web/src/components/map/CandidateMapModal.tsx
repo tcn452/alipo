@@ -6,6 +6,7 @@ import { StationGeocodingCandidate } from '@/types/alipo';
 import { loadMapLibre } from '@/lib/maplibre-client';
 import { applyAlipoStyle, MAP_STYLE } from '@/components/map/StationMap';
 import { classifyStationBrand, getBrandColor } from '@/lib/constants';
+import { useLanguage } from '@/lib/i18n';
 
 interface CandidateMapModalProps {
   candidate: StationGeocodingCandidate | null;
@@ -20,6 +21,7 @@ export function CandidateMapModal({
   onReview,
   reviewDisabled = false,
 }: CandidateMapModalProps) {
+  const { t } = useLanguage();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -88,15 +90,15 @@ export function CandidateMapModal({
           proposedEl.className = 'candidate-map-marker-proposed';
           proposedEl.innerHTML = `
             <div style="background: #e96a24; color: white; padding: 5px 10px; border-radius: 9999px; font-weight: 800; font-size: 11px; display: flex; items-center; gap: 4px; border: 2px solid white; box-shadow: 0 4px 14px rgba(233,106,36,0.45); white-space: nowrap; cursor: pointer;">
-              <span>📍 Proposed: ${candidate.result_name || candidate.source_name}</span>
+              <span>📍 ${t('Proposed')}: ${candidate.result_name || candidate.source_name}</span>
             </div>
           `;
 
           const proposedPopup = new maplibre.Popup({ offset: 16, closeButton: false }).setHTML(`
             <div style="font-family: var(--font-body, sans-serif); padding: 4px;">
               <strong style="display:block; font-size: 12px; color: #111;">${candidate.source_name}</strong>
-              <span style="display:block; font-size: 11px; color: #666; margin-top: 2px;">Proposed coordinates: ${candidate.latitude.toFixed(5)}, ${candidate.longitude.toFixed(5)}</span>
-              <span style="display:block; font-size: 11px; color: #e96a24; font-weight: 700; margin-top: 4px;">Confidence: ${candidate.confidence_score}% (${candidate.provider})</span>
+              <span style="display:block; font-size: 11px; color: #666; margin-top: 2px;">${t('Proposed coordinates')}: ${candidate.latitude.toFixed(5)}, ${candidate.longitude.toFixed(5)}</span>
+              <span style="display:block; font-size: 11px; color: #e96a24; font-weight: 700; margin-top: 4px;">${t('Confidence')}: ${candidate.confidence_score}% (${candidate.provider})</span>
             </div>
           `);
 
@@ -124,8 +126,8 @@ export function CandidateMapModal({
             const nearestPopup = new maplibre.Popup({ offset: 16, closeButton: false }).setHTML(`
               <div style="font-family: var(--font-body, sans-serif); padding: 4px;">
                 <strong style="display:block; font-size: 12px; color: #111;">${candidate.nearest_station_name}</strong>
-                <span style="display:block; font-size: 11px; color: #666; margin-top: 2px;">Brand: ${candidate.nearest_station_brand}</span>
-                <span style="display:block; font-size: 11px; color: #06452f; font-weight: 700; margin-top: 4px;">${Math.round(candidate.nearest_station_distance_m)}m away from proposed pin</span>
+                <span style="display:block; font-size: 11px; color: #666; margin-top: 2px;">${t('Brand')}: ${candidate.nearest_station_brand}</span>
+                <span style="display:block; font-size: 11px; color: #06452f; font-weight: 700; margin-top: 4px;">${t('{metres}m away from proposed pin', { metres: Math.round(candidate.nearest_station_distance_m) })}</span>
               </div>
             `);
 
@@ -205,7 +207,7 @@ export function CandidateMapModal({
         mapInstanceRef.current = null;
       }
     };
-  }, [candidate]);
+  }, [candidate, t]);
 
   if (!candidate) return null;
 
@@ -230,7 +232,7 @@ export function CandidateMapModal({
           <div className="min-w-0 pr-4">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-800">
-                Alipo Live Map Preview
+                {t('Alipo live map preview')}
               </span>
               <span className="text-[11px] font-black text-gray-500">
                 {candidate.operator_name} · {candidate.source_city || 'Malawi'}
@@ -240,13 +242,13 @@ export function CandidateMapModal({
               {candidate.result_name || candidate.source_name}
             </h2>
             <p className="mt-0.5 text-xs text-gray-500">
-              {candidate.latitude.toFixed(5)}, {candidate.longitude.toFixed(5)} · {candidate.provider} ({candidate.confidence_score}% confidence)
+              {candidate.latitude.toFixed(5)}, {candidate.longitude.toFixed(5)} · {candidate.provider} ({t('{score}% confidence', { score: candidate.confidence_score })})
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close map preview"
+            aria-label={t('Close map preview')}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
           >
             <X className="h-4 w-4" />
@@ -261,7 +263,7 @@ export function CandidateMapModal({
           {mapLoading ? (
             <div className="absolute inset-0 z-10 grid place-items-center bg-[#e7eadf]/80 backdrop-blur-[2px]">
               <div className="flex items-center gap-2 rounded-xl border border-emerald-700/20 bg-white px-4 py-2.5 text-xs font-black text-emerald-950 shadow-md">
-                <RefreshCw className="h-4 w-4 animate-spin text-orange" /> Loading Alipo map…
+                <RefreshCw className="h-4 w-4 animate-spin text-orange" /> {t('Loading Alipo map…')}
               </div>
             </div>
           ) : null}
@@ -270,14 +272,14 @@ export function CandidateMapModal({
           {mapError ? (
             <div className="absolute inset-0 z-10 grid place-items-center bg-[#e7eadf] p-4 text-center">
               <div className="max-w-xs rounded-xl border border-red-200 bg-white p-4 shadow-lg">
-                <p className="text-xs font-bold text-red-700">Map tiles could not be loaded.</p>
+                <p className="text-xs font-bold text-red-700">{t('Map tiles could not be loaded.')}</p>
                 <a
                   href={`https://www.openstreetmap.org/?mlat=${candidate.latitude}&mlon=${candidate.longitude}#map=18/${candidate.latitude}/${candidate.longitude}`}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-emerald-700 underline"
                 >
-                  Open in OpenStreetMap <ExternalLink className="h-3 w-3" />
+                  {t('Open in OpenStreetMap')} <ExternalLink className="h-3 w-3" />
                 </a>
               </div>
             </div>
@@ -287,25 +289,25 @@ export function CandidateMapModal({
           <div className="pointer-events-none absolute bottom-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-2 sm:right-auto">
             <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-black/10 bg-white/95 px-3 py-2 text-xs shadow-lg backdrop-blur-md">
               <span className="flex h-2.5 w-2.5 rounded-full bg-[#e96a24]" />
-              <span className="font-bold text-gray-700">Proposed pin</span>
+              <span className="font-bold text-gray-700">{t('Proposed pin')}</span>
               {hasNearest ? (
                 <>
                   <span className="text-gray-300">·</span>
                   <span className="flex h-2.5 w-2.5 rounded-full bg-[#06452f]" />
-                  <span className="font-bold text-gray-700">Closest station</span>
+                  <span className="font-bold text-gray-700">{t('Closest station')}</span>
                   <span className="text-gray-300">·</span>
                   <span
                     className={`font-black ${
                       tooCloseToCreate ? 'text-amber-700' : 'text-emerald-700'
                     }`}
                   >
-                    {Math.round(candidate.nearest_station_distance_m)}m apart
+                    {t('{metres}m apart', { metres: Math.round(candidate.nearest_station_distance_m) })}
                   </span>
                 </>
               ) : (
                 <>
                   <span className="text-gray-300">·</span>
-                  <span className="text-gray-500">Closest station: {Math.round(candidate.nearest_station_distance_m)}m</span>
+                  <span className="text-gray-500">{t('Closest station: {metres}m', { metres: Math.round(candidate.nearest_station_distance_m) })}</span>
                 </>
               )}
             </div>
@@ -313,12 +315,12 @@ export function CandidateMapModal({
             {tooCloseToCreate ? (
               <div className="pointer-events-auto inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/95 px-3 py-2 text-[11px] font-bold text-amber-900 shadow-lg backdrop-blur-md">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                Within 75m of existing station
+                {t('Within 75m of existing station')}
               </div>
             ) : (
               <div className="pointer-events-auto inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50/95 px-3 py-2 text-[11px] font-bold text-emerald-900 shadow-lg backdrop-blur-md">
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                &gt;75m away (potential new station)
+                {t('More than 75m away (potential new station)')}
               </div>
             )}
           </div>
@@ -327,7 +329,7 @@ export function CandidateMapModal({
         {/* Footer with Details & Direct Review Actions */}
         <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-xs text-gray-500">
-            <span>Closest: </span>
+            <span>{t('Closest')}: </span>
             <strong className="text-gray-900">{candidate.nearest_station_name}</strong>
             <span className="text-gray-400"> ({candidate.nearest_station_brand})</span>
             <span className="mx-1 text-gray-300">·</span>
@@ -337,7 +339,7 @@ export function CandidateMapModal({
               rel="noreferrer"
               className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-800 hover:underline"
             >
-              External OSM <ExternalLink className="h-3 w-3" />
+              {t('External OSM')} <ExternalLink className="h-3 w-3" />
             </a>
           </div>
 
@@ -349,16 +351,16 @@ export function CandidateMapModal({
                 onClick={() => onReview('accept')}
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 text-xs font-black text-white transition hover:bg-emerald-800 disabled:opacity-50"
               >
-                <Check className="h-3.5 w-3.5" /> Match
+                <Check className="h-3.5 w-3.5" /> {t('Match')}
               </button>
               <button
                 type="button"
                 disabled={reviewDisabled || tooCloseToCreate}
                 onClick={() => onReview('create')}
-                title={tooCloseToCreate ? 'Use Match when an existing pin is within 75 metres.' : undefined}
+                title={tooCloseToCreate ? t('Use Match when an existing pin is within 75 metres.') : undefined}
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-gray-900 px-3.5 text-xs font-black text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <Plus className="h-3.5 w-3.5" /> Create
+                <Plus className="h-3.5 w-3.5" /> {t('Create')}
               </button>
               <button
                 type="button"
@@ -366,14 +368,14 @@ export function CandidateMapModal({
                 onClick={() => onReview('reject')}
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3.5 text-xs font-black text-red-700 transition hover:bg-red-50 disabled:opacity-50"
               >
-                <X className="h-3.5 w-3.5" /> Reject
+                <X className="h-3.5 w-3.5" /> {t('Reject')}
               </button>
               <button
                 type="button"
                 onClick={onClose}
                 className="ml-auto inline-flex min-h-10 items-center rounded-xl border border-gray-300 bg-white px-3.5 text-xs font-bold text-gray-700 hover:bg-gray-100 sm:ml-0"
               >
-                Close
+                {t('Close')}
               </button>
             </div>
           ) : (
@@ -382,7 +384,7 @@ export function CandidateMapModal({
               onClick={onClose}
               className="ml-auto inline-flex min-h-10 items-center rounded-xl bg-gray-900 px-4 text-xs font-black text-white hover:bg-black"
             >
-              Close
+              {t('Close')}
             </button>
           )}
         </div>
