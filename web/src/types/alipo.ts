@@ -154,3 +154,19 @@ export interface StationGeocodingCandidate {
   nearest_station_longitude?: number;
   vote_counts: { accept: number; create: number; reject: number };
 }
+
+export interface Sponsor {
+  id: string;
+  name: string;
+  tagline?: string;
+  description?: string;
+  category?: string;
+  cta_text?: string;
+  cta_url: string;
+  image_url?: string;
+  logo_url?: string;
+  phone?: string;
+  placement: 'in_feed' | 'post_report' | 'banner' | 'all';
+  city?: string;
+  badge?: string;
+}

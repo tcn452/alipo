@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Check, CheckCircle2, CircleAlert, MapPinOff, PencilLine, Send, X, XCircle } from 'lucide-react';
 import { FuelStatus, FuelType, QueueEstimate, Station } from '@/types/alipo';
 import { useLanguage } from '@/lib/i18n';
+import { SponsorBanner } from '@/components/SponsorBanner';
 
 interface ReportModalProps { isOpen: boolean; onClose: () => void; stations: Station[]; selectedStation?: Station | null; onReportSubmitted: () => void; }
 
@@ -53,7 +54,7 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
         ? result.confirmed ? 'The station name is now confirmed and updated.' : 'Suggestion saved. One more matching vote will confirm this name.'
         : 'Your report helps keep Malawi moving.');
       setSuccess(true);
-      setTimeout(() => { setSuccess(false); onReportSubmitted(); closeModal(); }, 1200);
+      onReportSubmitted();
     } catch (error) { setErrorMsg(error instanceof Error ? error.message : t('Unable to submit this report.')); } finally { setIsSubmitting(false); }
   };
 
@@ -61,7 +62,7 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
     <div className="my-5 w-full max-w-[620px] border border-white/20 bg-[#fbf8f1] shadow-[0_30px_100px_rgba(0,0,0,.3)]">
       <header className="flex items-start justify-between bg-forest px-5 py-5 text-white sm:px-7"><div><p className="eyebrow text-[#f5aa54]">{t('Community update')}</p><h2 id="report-title" className="mt-1 text-2xl font-black tracking-[-.03em]">{t("What's the fuel situation?")}</h2><p className="mt-1 text-xs text-white/60">{t('One quick report can save someone a long trip.')}</p></div><a href="#" onClick={closeModal} aria-label={t('Close report form')} className="grid h-9 w-9 place-items-center border border-white/20 text-white"><X className="h-4 w-4" /></a></header>
 
-      {success ? <div className="px-7 py-20 text-center"><div className="mx-auto grid h-16 w-16 place-items-center bg-[#dfead7] text-forest"><Check className="h-8 w-8" /></div><h3 className="mt-5 text-2xl font-black">Zikomo kwambiri.</h3><p className="mt-2 text-sm text-muted">{t(successMessage)}</p></div> :
+      {success ? <div className="px-5 py-8 text-center sm:px-7"><div className="mx-auto grid h-14 w-14 place-items-center bg-[#dfead7] text-forest"><Check className="h-7 w-7" /></div><h3 className="mt-4 text-2xl font-black">Zikomo kwambiri.</h3><p className="mt-1.5 text-sm text-muted">{t(successMessage)}</p><SponsorBanner placement="post_report" city={selectedStation?.city} /><div className="mt-6 flex justify-center"><button type="button" onClick={() => { setSuccess(false); closeModal(); }} className="inline-flex min-h-11 items-center justify-center bg-forest px-8 text-xs font-black text-white transition hover:bg-[#0b5940]">{t('Done')}</button></div></div> :
       <form onSubmit={handleSubmit} className="space-y-6 p-5 sm:p-7">
         {errorMsg && <p className="border border-[#c9583c]/30 bg-[#f9e1d9] p-3 text-xs font-bold text-[#9d321d]">{errorMsg}</p>}
         <label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Fuel station')}</span><select value={stationId} onChange={(event) => setStationId(event.target.value)} className="h-12 w-full border border-line bg-white px-3 text-sm font-bold outline-none focus:border-forest">{stations.map((station) => <option key={station.id} value={station.id}>{station.name} — {station.district}</option>)}</select></label>
