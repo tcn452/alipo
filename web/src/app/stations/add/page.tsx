@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, LocateFixed, MapPin } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -24,6 +24,10 @@ export default function AddStationPage() {
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
     );
   };
+
+  useEffect(() => {
+    captureLocation();
+  }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

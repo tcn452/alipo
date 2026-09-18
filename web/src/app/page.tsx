@@ -209,6 +209,12 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      activateLocation();
+    }
+  }, [activateLocation]);
+
+  useEffect(() => {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) {
       setNotificationState('unsupported');
       return;
