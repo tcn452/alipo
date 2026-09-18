@@ -158,7 +158,7 @@ export default function HomePage() {
       if (reported.length) {
         if (requestId !== stationRequestRef.current) return;
         setStations(reported);
-        setSelectedStation(null);
+        setSelectedStation((current) => current && reported.some((item) => item.id === current.id) ? current : null);
         return;
       }
 
@@ -172,7 +172,7 @@ export default function HomePage() {
         .catch(() => []);
       if (requestId !== stationRequestRef.current) return;
       setStations(mapped);
-      setSelectedStation(null);
+      setSelectedStation((current) => current && mapped.some((item) => item.id === current.id) ? current : null);
     } finally {
       if (requestId === stationRequestRef.current) setLoading(false);
     }
@@ -184,10 +184,13 @@ export default function HomePage() {
     if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
     const handlePosition = ({ coords }: GeolocationPosition) => {
       if (!isInMalawi(coords.latitude, coords.longitude)) {
+        if (locationWatchRef.current !== null) {
+          navigator.geolocation.clearWatch(locationWatchRef.current);
+          locationWatchRef.current = null;
+        }
         setUserLocation(null);
         setLocationAccuracy(null);
-        setSelectedStation(null);
-        setSelectedCity('All Cities');
+        setSelectedCity((current) => current === 'My Location' ? 'All Cities' : current);
         setLocationState('outside');
         return;
       }
