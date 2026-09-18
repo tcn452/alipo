@@ -65,7 +65,9 @@ export function OnboardingModal({ isOpen, onClose, onAllowLocation, isLocationAc
                   {t('Choose your language')}
                 </h2>
                 <p className="mt-1 text-xs text-muted">
-                  Sankhani chilankhulo chomwe mukufuna kugwiritsa ntchito pa Alipo.
+                  {language === 'ny'
+                    ? 'Sankhani chilankhulo chomwe mukufuna kugwiritsa ntchito pa Alipo.'
+                    : 'Choose your preferred language for using Alipo.'}
                 </p>
               </div>
 

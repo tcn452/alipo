@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { ArrowRight, Bell, CheckCircle2, CircleAlert, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, MapPinned, Plus, RefreshCw, Search, SlidersHorizontal, ThumbsUp, X, XCircle } from 'lucide-react';
+import { ArrowRight, Bell, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, MapPinned, Plus, RefreshCw, Search, ThumbsUp, XCircle } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
@@ -121,7 +121,6 @@ export default function HomePage() {
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   const [isNameSuggestionsOpen, setIsNameSuggestionsOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-  const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('list');
   const [loading, setLoading] = useState(false);
   const [radiusKm, setRadiusKm] = useState(5);
@@ -271,14 +270,6 @@ export default function HomePage() {
     }
   }, []);
 
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (selectedStatus !== 'all') count++;
-    if (radiusKm !== 5 && selectedCity !== 'All Cities') count++;
-    if (stationAlertsEnabled) count++;
-    return count;
-  }, [selectedStatus, radiusKm, selectedCity, stationAlertsEnabled]);
-
   const filteredStations = useMemo(() => stations.filter((station) => {
     if (selectedFuel !== 'all' && !station.fuel_types.includes(selectedFuel)) return false;
     const effectiveStatus = selectedFuel === 'petrol' ? station.petrol_status : selectedFuel === 'diesel' ? station.diesel_status : station.latest_status;
@@ -346,39 +337,35 @@ export default function HomePage() {
   const mapCenter = selectedCity === 'My Location' && userLocation ? userLocation : (CITY_CENTERS[selectedCity] || CITY_CENTERS['All Cities']);
   const selectedStockStatus = selectedStation ? getStationStockStatus(selectedStation) : null;
   const selectedStockConfig = selectedStockStatus ? STATION_STOCK_CONFIG[selectedStockStatus] : null;
-  const stats = useMemo(() => {
-    const statusFor = (station: Station) => selectedFuel === 'petrol' ? station.petrol_status : selectedFuel === 'diesel' ? station.diesel_status : station.latest_status;
-    return { available: filteredStations.filter((station) => statusFor(station) === 'available').length, low: filteredStations.filter((station) => statusFor(station) === 'low').length, out: filteredStations.filter((station) => statusFor(station) === 'out').length };
-  }, [filteredStations, selectedFuel]);
-
   return (
     <div className="min-h-screen overflow-x-hidden bg-ivory text-ink">
       <Header onOpenReport={() => setIsReportModalOpen(true)} />
       <main>
         <section className="overflow-hidden bg-forest text-white">
-          <div className="mx-auto grid max-w-[1440px] lg:grid-cols-[1.35fr_.65fr]">
-            <div className="relative border-b border-white/10 px-5 py-10 sm:px-8 lg:border-b-0 lg:border-r lg:px-12 lg:py-12">
-              <div className="absolute right-8 top-6 hidden h-44 w-44 rounded-full border border-white/10 lg:block" />
-              <p className="eyebrow relative z-10 max-w-full whitespace-normal leading-5 text-[#f5aa54]">
-                {t("Malawi's live fuel network. Keep Malawi moving.")}
-              </p>
-              <h1 className="mt-4 max-w-3xl font-display text-4xl leading-[.96] tracking-[-0.04em] sm:text-6xl lg:text-7xl">{t("Fuel is there. You're not alone.")}</h1>
-              <p className="mt-5 max-w-xl text-sm leading-6 text-white/70 sm:text-base">{t('Find fuel, see queue times and share what you know. Built for every drive moving in Malawi.')}</p>
-              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2"><Link href="/stations/add" className="inline-flex min-h-11 items-center gap-2 border-b border-[#f5aa54] text-sm font-black text-[#f5aa54] transition hover:text-white"><Plus className="h-4 w-4" /> {t('Add a filling station')}</Link><button type="button" onClick={() => setIsHowItWorksOpen(true)} className="inline-flex min-h-11 items-center gap-2 border-b border-white/40 text-sm font-black text-white transition hover:border-[#f5aa54] hover:text-[#f5aa54] focus:outline-none focus:ring-2 focus:ring-[#f5aa54] focus:ring-offset-2 focus:ring-offset-forest"><CircleHelp className="h-4 w-4" /> {t('How Alipo works')}</button><button type="button" onClick={() => setIsNameSuggestionsOpen(true)} className="inline-flex min-h-11 items-center gap-2 border-b border-white/40 text-sm font-black text-white transition hover:border-[#f5aa54] hover:text-[#f5aa54]"><ThumbsUp className="h-4 w-4" /> {t('Confirm suggested filling station names')}</button><Link href="/stations/candidates" className="inline-flex min-h-11 items-center gap-2 border-b border-white/40 text-sm font-black text-white transition hover:border-[#f5aa54] hover:text-[#f5aa54]"><MapPinned className="h-4 w-4" /> {t('Review proposed station locations')}</Link></div>
-            </div>
-            <div className="grid grid-cols-3 lg:grid-cols-1">
-              {[
-                { label: 'Fuel available', value: stats.available, icon: CheckCircle2, color: 'text-[#9bcf79]' },
-                { label: 'Running low', value: stats.low, icon: CircleAlert, color: 'text-[#f5aa54]' },
-                { label: 'No fuel', value: stats.out, icon: XCircle, color: 'text-[#ef7c5d]' },
-              ].map(({ label, value, icon: Icon, color }) => <div key={label} className="flex min-w-0 items-center gap-2 border-r border-white/10 px-3 py-5 last:border-r-0 sm:gap-3 sm:px-4 lg:border-b lg:border-r-0 lg:px-8 lg:last:border-b-0"><Icon className={`h-5 w-5 shrink-0 ${color}`} /><div className="min-w-0"><p className="text-2xl font-black leading-none">{value}</p><p className="mt-1 text-[9px] font-bold uppercase leading-3 tracking-[.12em] text-white/55 sm:text-xs">{t(label)}</p></div></div>)}
+          <div className="mx-auto max-w-[1440px] px-5 py-7 sm:px-8 lg:px-12 lg:py-8">
+            <p className="eyebrow relative z-10 max-w-full whitespace-normal leading-5 text-[#f5aa54]">
+              {t("Malawi's live fuel network. Keep Malawi moving.")}
+            </p>
+            <h1 className="mt-2 max-w-3xl font-display text-3xl leading-[1.05] tracking-[-0.03em] sm:text-5xl lg:text-6xl">
+              {t("Fuel is there. You're not alone.")}
+            </h1>
+            <p className="mt-3 max-w-2xl text-xs leading-5 text-white/70 sm:text-sm">
+              {t('Find fuel, see queue times and share what you know. Built for every drive moving in Malawi.')}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+              <Link href="/stations/candidates" className="inline-flex min-h-9 items-center gap-1.5 border-b border-white/40 text-xs font-bold text-white transition hover:border-[#f5aa54] hover:text-[#f5aa54]">
+                <MapPinned className="h-3.5 w-3.5" /> {t('Review proposed station locations')}
+              </Link>
+              <button type="button" onClick={() => setIsHowItWorksOpen(true)} className="inline-flex min-h-9 items-center gap-1.5 border-b border-white/40 text-xs font-bold text-white transition hover:border-[#f5aa54] hover:text-[#f5aa54]">
+                <CircleHelp className="h-3.5 w-3.5" /> {t('How Alipo works')}
+              </button>
             </div>
           </div>
         </section>
 
         <section id="find-fuel" className="sticky top-[72px] z-20 scroll-mt-[72px] border-b border-line bg-ivory/95 backdrop-blur-xl">
           <div className="mx-auto max-w-[1440px] px-4 py-3 sm:px-8 lg:px-12">
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-2">
               {/* Row 1: Search + Fuel Selector */}
               <div className="flex items-center gap-2">
                 <label className="relative min-w-0 flex-1">
@@ -408,7 +395,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Row 2: Location + City Chips + Filters Button */}
+              {/* Row 2: Location + City Chips */}
               <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-0.5">
                 <button
                   type="button"
@@ -435,24 +422,80 @@ export default function HomePage() {
                     {city === 'All Cities' ? t('All Malawi') : city}
                   </button>
                 ))}
+              </div>
 
-                <button
-                  type="button"
-                  onClick={() => setIsFiltersModalOpen(true)}
-                  className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-xs font-bold transition border ${
-                    activeFilterCount > 0
-                      ? 'border-forest bg-[#e5eddc] text-forest font-black'
-                      : 'border-line bg-white text-muted hover:border-forest hover:text-forest'
-                  }`}
-                >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  <span>{t('Filters')}</span>
-                  {activeFilterCount > 0 && (
-                    <span className="grid h-4 w-4 place-items-center rounded-full bg-forest text-[9px] font-black text-white">
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </button>
+              {/* Row 3: Radius chips (1-tap range) + Status Filters */}
+              <div className="no-scrollbar flex items-center gap-2 overflow-x-auto border-t border-line/60 pt-2">
+                <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-muted">
+                  {t('Radius')}:
+                </span>
+                <div className="flex shrink-0 items-center gap-1">
+                  {[5, 10, 20, 50].map((radius) => (
+                    <button
+                      key={radius}
+                      type="button"
+                      disabled={selectedCity === 'All Cities'}
+                      onClick={() => { setSelectedStation(null); setRadiusKm(radius); }}
+                      className={`h-7 px-2 text-[11px] font-bold transition border disabled:opacity-35 ${
+                        radiusKm === radius && selectedCity !== 'All Cities'
+                          ? 'border-forest bg-forest text-white font-black'
+                          : 'border-line bg-white text-muted hover:border-forest hover:text-ink'
+                      }`}
+                    >
+                      {radius} km
+                    </button>
+                  ))}
+                </div>
+
+                <span className="h-4 w-px bg-line/80 mx-1 shrink-0" aria-hidden="true" />
+
+                <div className="flex shrink-0 items-center gap-1">
+                  {STATUS_FILTERS.map((filter) => (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      onClick={() => setSelectedStatus(filter.id)}
+                      className={`inline-flex h-7 items-center gap-1.5 border px-2.5 text-[11px] font-bold transition ${
+                        selectedStatus === filter.id
+                          ? 'border-forest bg-[#dfead7] text-forest font-black'
+                          : 'border-line bg-white text-muted hover:border-forest hover:text-ink'
+                      }`}
+                    >
+                      {filter.id !== 'all' && (
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            filter.id === 'available'
+                              ? 'bg-[#398151]'
+                              : filter.id === 'low'
+                              ? 'bg-[#df972f]'
+                              : filter.id === 'stale'
+                              ? 'bg-[#795548]'
+                              : 'bg-[#c9583c]'
+                          }`}
+                        />
+                      )}
+                      {t(filter.label)}
+                    </button>
+                  ))}
+                </div>
+
+                {notificationState !== 'unsupported' && (
+                  <>
+                    <span className="h-4 w-px bg-line/80 mx-1 shrink-0" aria-hidden="true" />
+                    <button
+                      type="button"
+                      onClick={() => { void toggleStationAlerts(); }}
+                      className={`inline-flex h-7 shrink-0 items-center gap-1 border px-2 text-[11px] font-bold transition ${
+                        stationAlertsEnabled
+                          ? 'border-forest bg-forest text-white'
+                          : 'border-line bg-white text-muted hover:border-forest'
+                      }`}
+                    >
+                      <Bell className="h-3 w-3" />
+                      {t(stationAlertsEnabled ? 'Alerts on' : 'Station alerts')}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -532,146 +575,7 @@ export default function HomePage() {
       </main>
       <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo</strong> — Find fuel. Share updates. Keep Malawi moving.</p><p><Link href="/privacy" className="underline decoration-white/30 underline-offset-4 transition hover:text-white">Privacy Policy</Link> · <a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · Created by <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
       
-      {/* Filters Modal / Sheet */}
-      {isFiltersModalOpen ? (
-        <div
-          className="fixed inset-0 z-[2200] flex items-center justify-center overflow-y-auto bg-[#032e20]/75 p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="filters-title"
-        >
-          <div className="w-full max-w-md border border-white/20 bg-[#fbf8f1] p-5 shadow-[0_30px_100px_rgba(0,0,0,.4)] animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-line pb-3">
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal className="h-4 w-4 text-forest" />
-                <h3 id="filters-title" className="text-base font-black text-ink">{t('Filter stations')}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsFiltersModalOpen(false)}
-                className="grid h-8 w-8 place-items-center text-muted hover:text-ink"
-                aria-label={t('Close filters')}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
 
-            <div className="space-y-5 py-4">
-              {/* Status Filter */}
-              <div>
-                <label className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">
-                  {t('Fuel availability')}
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {STATUS_FILTERS.map((filter) => (
-                    <button
-                      key={filter.id}
-                      type="button"
-                      onClick={() => setSelectedStatus(filter.id)}
-                      className={`inline-flex h-9 items-center gap-2 border px-3 text-xs font-bold transition ${
-                        selectedStatus === filter.id
-                          ? 'border-forest bg-[#dfead7] text-forest font-black'
-                          : 'border-line bg-white text-muted hover:border-forest hover:text-ink'
-                      }`}
-                    >
-                      {filter.id !== 'all' && (
-                        <span
-                          className={`h-2 w-2 rounded-full ${
-                            filter.id === 'available'
-                              ? 'bg-[#398151]'
-                              : filter.id === 'low'
-                              ? 'bg-[#df972f]'
-                              : filter.id === 'stale'
-                              ? 'bg-[#795548]'
-                              : 'bg-[#c9583c]'
-                          }`}
-                        />
-                      )}
-                      {t(filter.label)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Radius Filter */}
-              <div>
-                <label className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">
-                  {t('Search radius')}
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {[5, 10, 20, 30, 50].map((radius) => (
-                    <button
-                      key={radius}
-                      type="button"
-                      disabled={selectedCity === 'All Cities'}
-                      onClick={() => { setSelectedStation(null); setRadiusKm(radius); }}
-                      className={`h-9 border px-3 text-xs font-bold transition disabled:opacity-40 ${
-                        radiusKm === radius && selectedCity !== 'All Cities'
-                          ? 'border-forest bg-forest text-white font-black'
-                          : 'border-line bg-white text-ink hover:border-forest'
-                      }`}
-                    >
-                      {radius} km
-                    </button>
-                  ))}
-                </div>
-                {selectedCity === 'All Cities' && (
-                  <p className="mt-1.5 text-[10px] text-muted">
-                    Radius applies when viewing specific cities or your location.
-                  </p>
-                )}
-              </div>
-
-              {/* Station Alerts */}
-              {notificationState !== 'unsupported' && (
-                <div className="border-t border-line pt-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <strong className="block text-xs font-black text-ink">{t('Station alerts')}</strong>
-                      <span className="text-[10px] text-muted">
-                        {t('When safely parked, help other drivers with a quick fuel report.')}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => { void toggleStationAlerts(); }}
-                      className={`inline-flex h-9 shrink-0 items-center gap-1.5 border px-3 text-xs font-bold transition ${
-                        stationAlertsEnabled
-                          ? 'border-forest bg-forest text-white'
-                          : 'border-line bg-white text-muted hover:border-forest'
-                      }`}
-                    >
-                      <Bell className="h-3.5 w-3.5" />
-                      {t(stationAlertsEnabled ? 'Alerts on' : 'Station alerts')}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between border-t border-line pt-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedStatus('all');
-                  setRadiusKm(5);
-                  setIsFiltersModalOpen(false);
-                }}
-                className="text-xs font-bold text-muted underline hover:text-ink"
-              >
-                {t('Reset filters')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsFiltersModalOpen(false)}
-                className="bg-forest px-6 py-2.5 text-xs font-black text-white hover:bg-[#0b5940]"
-              >
-                {t('Apply filters')}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       <ReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} stations={stations} selectedStation={selectedStation} onReportSubmitted={fetchStations} />
       <HowItWorks isOpen={isHowItWorksOpen} onClose={closeHowItWorks} />
