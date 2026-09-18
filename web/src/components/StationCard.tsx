@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowUpRight, ChevronDown, Clock3, History, MapPin, RefreshCw } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Clock3, History, MapPin, MapPinned, RefreshCw } from 'lucide-react';
 import { classifyStationBrand, getBrandColor, getStationStockStatus, QUEUE_LABELS, STATION_STOCK_CONFIG, STATUS_CONFIG } from '@/lib/constants';
 import { Station, StationReportHistoryItem } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
 
-interface StationCardProps { station: Station; stationNumber: number; onReportClick: (station: Station) => void; onSelectStation?: (station: Station) => void; isSelected?: boolean; }
+interface StationCardProps { station: Station; stationNumber: number; onReportClick: (station: Station) => void; onViewMap: (station: Station) => void; onSelectStation?: (station: Station) => void; isSelected?: boolean; }
 
-export function StationCard({ station, stationNumber, onReportClick, onSelectStation, isSelected }: StationCardProps) {
+export function StationCard({ station, stationNumber, onReportClick, onViewMap, onSelectStation, isSelected }: StationCardProps) {
   const { t } = useLanguage();
   const stockStatus = getStationStockStatus(station);
   const status = stockStatus ? STATION_STOCK_CONFIG[stockStatus] : null;
@@ -51,7 +51,7 @@ export function StationCard({ station, stationNumber, onReportClick, onSelectSta
         <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Queue')}</span><strong className="mt-0.5 flex items-center gap-1"><Clock3 className="h-3 w-3" /> {queue?.duration ? t(queue.duration) : t('Unknown')}</strong></div>
       </div>
 
-      <div className="mt-2 flex min-w-0 flex-wrap items-center justify-between gap-x-3"><span className="min-w-0 text-[11px] text-muted">{t('Updated')} <TimeAgo date={station.last_reported_at || station.updated} /></span><div className="ml-auto flex shrink-0 items-center gap-2"><button type="button" aria-expanded={historyOpen} onClick={(event) => { event.stopPropagation(); void toggleHistory(); }} className="inline-flex min-h-11 items-center gap-1 px-1 text-xs font-black text-muted hover:text-forest"><History className="h-3.5 w-3.5" /> {t('History')} <ChevronDown className={`h-3.5 w-3.5 transition ${historyOpen ? 'rotate-180' : ''}`} /></button><a href="#report-fuel" onClick={(event) => { event.stopPropagation(); onReportClick(station); }} className="inline-flex min-h-11 items-center gap-1 px-1 text-xs font-black text-forest">{t('Update')} <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></a></div></div>
+      <div className="mt-2 flex min-w-0 flex-wrap items-center justify-between gap-x-3"><span className="min-w-0 text-[11px] text-muted">{t('Updated')} <TimeAgo date={station.last_reported_at || station.updated} /></span><div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2"><button type="button" onClick={(event) => { event.stopPropagation(); onViewMap(station); }} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-xs font-black text-forest transition hover:text-orange"><MapPinned className="h-3.5 w-3.5" /> {t('View on map')}</button><button type="button" aria-expanded={historyOpen} onClick={(event) => { event.stopPropagation(); void toggleHistory(); }} className="inline-flex min-h-11 items-center gap-1 px-1 text-xs font-black text-muted hover:text-forest"><History className="h-3.5 w-3.5" /> {t('History')} <ChevronDown className={`h-3.5 w-3.5 transition ${historyOpen ? 'rotate-180' : ''}`} /></button><a href="#report-fuel" onClick={(event) => { event.stopPropagation(); onReportClick(station); }} className="inline-flex min-h-11 items-center gap-1 px-1 text-xs font-black text-forest">{t('Update')} <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></a></div></div>
 
       {historyOpen ? <div onClick={(event) => event.stopPropagation()} className="mt-4 border-t border-line pt-3"><p className="mb-2 text-[10px] font-black uppercase tracking-[.14em] text-muted">{t('Recent community reports')}</p>{historyLoading ? <p role="status" className="flex items-center gap-2 py-3 text-xs text-muted"><RefreshCw className="h-3.5 w-3.5 animate-spin" /> {t('Loading history…')}</p> : historyError ? <p className="py-3 text-xs font-bold text-[#9d321d]">{t('Report history could not be loaded.')}</p> : history?.length ? <ol className="space-y-2">{history.map((report) => { const reportStatus = STATUS_CONFIG[report.status]; return <li key={report.id} className={`flex items-center justify-between gap-3 px-3 py-2 text-[11px] ${report.is_stale ? 'bg-[#f3ece8]' : 'bg-[#f8f5ee]'}`}><div><strong className="block text-ink">{t(reportStatus.label)} · <span className="capitalize">{t(report.fuel_type === 'petrol' ? 'Petrol' : report.fuel_type === 'diesel' ? 'Diesel' : 'Both')}</span>{report.is_stale ? <span className="ml-1.5 bg-white px-1.5 py-0.5 text-[9px] font-black uppercase text-[#795548]">{t('Stale')}</span> : null}</strong><span className="text-muted">{report.queue_estimate ? `${t(QUEUE_LABELS[report.queue_estimate]?.duration || report.queue_estimate)} ${t('Queue').toLowerCase()} · ` : ''}<TimeAgo date={report.created_at} /></span></div><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${reportStatus.dot}`} /></li>; })}</ol> : <p className="py-3 text-xs text-muted">{t('No community reports yet.')}</p>}</div> : null}
     </article>
