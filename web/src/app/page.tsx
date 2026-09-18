@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { ArrowRight, Bell, CheckCircle2, CircleAlert, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, MapPinned, Plus, RefreshCw, Search, ThumbsUp, XCircle } from 'lucide-react';
+import { ArrowRight, Bell, CheckCircle2, CircleAlert, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, MapPinned, Plus, RefreshCw, Search, SlidersHorizontal, ThumbsUp, X, XCircle } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
@@ -15,6 +15,7 @@ import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
 import { HowItWorks } from '@/components/HowItWorks';
 import { NameSuggestions } from '@/components/NameSuggestions';
+import { OnboardingModal } from '@/components/OnboardingModal';
 
 const StationMap = dynamic(() => import('@/components/map/StationMap'), {
   ssr: false,
@@ -119,6 +120,8 @@ export default function HomePage() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   const [isNameSuggestionsOpen, setIsNameSuggestionsOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('list');
   const [loading, setLoading] = useState(false);
   const [radiusKm, setRadiusKm] = useState(5);
@@ -257,6 +260,25 @@ export default function HomePage() {
     return () => { void supabase.removeChannel(channel); };
   }, [fetchStations]);
 
+  useEffect(() => {
+    try {
+      const onboarded = localStorage.getItem('alipo-onboarded');
+      if (!onboarded) {
+        setIsOnboardingOpen(true);
+      }
+    } catch {
+      // Ignore storage restrictions
+    }
+  }, []);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedStatus !== 'all') count++;
+    if (radiusKm !== 5 && selectedCity !== 'All Cities') count++;
+    if (stationAlertsEnabled) count++;
+    return count;
+  }, [selectedStatus, radiusKm, selectedCity, stationAlertsEnabled]);
+
   const filteredStations = useMemo(() => stations.filter((station) => {
     if (selectedFuel !== 'all' && !station.fuel_types.includes(selectedFuel)) return false;
     const effectiveStatus = selectedFuel === 'petrol' ? station.petrol_status : selectedFuel === 'diesel' ? station.diesel_status : station.latest_status;
@@ -355,17 +377,98 @@ export default function HomePage() {
         </section>
 
         <section id="find-fuel" className="sticky top-[72px] z-20 scroll-mt-[72px] border-b border-line bg-ivory/95 backdrop-blur-xl">
-          <div className="mx-auto max-w-[1440px] px-4 py-4 sm:px-8 lg:px-12">
-            <div className="grid gap-3">
-              <label className="relative block"><Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><span className="sr-only">{t('Search station or area')}</span><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t('Search station or area')} className="h-12 w-full border border-line bg-white pl-11 pr-4 text-sm outline-none transition focus:border-forest focus:ring-2 focus:ring-forest/10" /></label>
-              <div className="no-scrollbar flex gap-2 overflow-x-auto border-y border-line/70 py-2"><button type="button" onClick={activateLocation} disabled={locationState === 'locating'} className={`inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap px-4 text-xs font-bold transition ${selectedCity === 'My Location' ? 'bg-orange text-white' : 'border border-orange/40 bg-white text-forest hover:border-orange'} disabled:opacity-60`}><LocateFixed className={`h-4 w-4 ${locationState === 'locating' ? 'animate-pulse' : ''}`} />{t(locationState === 'locating' ? 'Finding you…' : locationState === 'active' ? 'Near me' : 'Use my location')}</button>{notificationState !== 'unsupported' ? <button type="button" onClick={() => { void toggleStationAlerts(); }} aria-pressed={stationAlertsEnabled} className={`inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap px-4 text-xs font-bold transition ${stationAlertsEnabled ? 'bg-forest text-white' : 'border border-line bg-white text-forest hover:border-forest'}`}><Bell className="h-4 w-4" />{t(stationAlertsEnabled ? 'Alerts on' : 'Station alerts')}</button> : null}<label className="flex h-10 shrink-0 items-center gap-2 border border-line bg-white px-3 text-xs font-bold text-muted"><span className="hidden sm:inline">{t('Radius')}</span><select aria-label={t('Search radius')} value={radiusKm} onChange={(event) => { setSelectedStation(null); setRadiusKm(Number(event.target.value)); }} disabled={selectedCity === 'All Cities'} className="bg-transparent font-black text-forest outline-none disabled:opacity-40">{[5, 10, 20, 30, 50].map((radius) => <option key={radius} value={radius}>{radius} km</option>)}</select></label></div>
-              <div className="no-scrollbar flex gap-2 overflow-x-auto">{CITIES.map((city) => <button key={city} onClick={() => { setSelectedStation(null); setSelectedCity(city); }} className={`h-10 shrink-0 whitespace-nowrap px-4 text-xs font-bold transition ${selectedCity === city ? 'bg-forest text-white' : 'border border-line bg-white text-ink hover:border-forest'}`}>{city === 'All Cities' ? t('All Malawi') : city}</button>)}</div>
+          <div className="mx-auto max-w-[1440px] px-4 py-3 sm:px-8 lg:px-12">
+            <div className="flex flex-col gap-2.5">
+              {/* Row 1: Search + Fuel Selector */}
+              <div className="flex items-center gap-2">
+                <label className="relative min-w-0 flex-1">
+                  <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                  <span className="sr-only">{t('Search station, area or brand')}</span>
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder={t('Search station, area or brand')}
+                    className="h-11 w-full border border-line bg-white pl-10 pr-3 text-xs font-medium outline-none transition focus:border-forest focus:ring-2 focus:ring-forest/10 sm:text-sm"
+                  />
+                </label>
+                <div className="flex shrink-0 border border-line bg-white" aria-label={t('Fuel type filter')}>
+                  {(['all', 'petrol', 'diesel'] as const).map((fuel) => (
+                    <button
+                      key={fuel}
+                      type="button"
+                      onClick={() => { setSelectedStation(null); setSelectedFuel(fuel); }}
+                      aria-pressed={selectedFuel === fuel}
+                      className={`h-11 px-3 text-[11px] font-black uppercase transition ${
+                        selectedFuel === fuel ? 'bg-orange text-white' : 'text-muted hover:text-forest'
+                      }`}
+                    >
+                      {t(fuel === 'all' ? 'All' : fuel === 'petrol' ? 'Petrol' : 'Diesel')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Row 2: Location + City Chips + Filters Button */}
+              <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-0.5">
+                <button
+                  type="button"
+                  onClick={activateLocation}
+                  disabled={locationState === 'locating'}
+                  className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-xs font-bold transition ${
+                    selectedCity === 'My Location'
+                      ? 'bg-orange text-white'
+                      : 'border border-orange/40 bg-white text-forest hover:border-orange'
+                  } disabled:opacity-60`}
+                >
+                  <LocateFixed className={`h-3.5 w-3.5 ${locationState === 'locating' ? 'animate-pulse' : ''}`} />
+                  {t(locationState === 'locating' ? 'Finding you…' : locationState === 'active' ? 'Near me' : 'Use my location')}
+                </button>
+
+                {CITIES.map((city) => (
+                  <button
+                    key={city}
+                    onClick={() => { setSelectedStation(null); setSelectedCity(city); }}
+                    className={`h-9 shrink-0 whitespace-nowrap px-3 text-xs font-bold transition ${
+                      selectedCity === city ? 'bg-forest text-white' : 'border border-line bg-white text-ink hover:border-forest'
+                    }`}
+                  >
+                    {city === 'All Cities' ? t('All Malawi') : city}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => setIsFiltersModalOpen(true)}
+                  className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-xs font-bold transition border ${
+                    activeFilterCount > 0
+                      ? 'border-forest bg-[#e5eddc] text-forest font-black'
+                      : 'border-line bg-white text-muted hover:border-forest hover:text-forest'
+                  }`}
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  <span>{t('Filters')}</span>
+                  {activeFilterCount > 0 && (
+                    <span className="grid h-4 w-4 place-items-center rounded-full bg-forest text-[9px] font-black text-white">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
-            {locationState === 'outside' ? <p role="status" className="mt-3 border-l-2 border-orange pl-3 text-xs font-bold text-muted">{t('Your location is outside Malawi, so the national map is shown.')}</p> : locationState === 'error' ? <p role="status" className="mt-3 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">{t('Location unavailable. Allow location access in your browser and try again.')}</p> : notificationState === 'denied' ? <p role="status" className="mt-3 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">{t('Notifications are blocked. Enable them in your browser settings to use station alerts.')}</p> : null}
-            <div className="mt-3 grid gap-2 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center lg:gap-3">
-              <div className="flex min-w-0 items-center gap-2"><div className="flex min-w-0 flex-1 border border-line bg-white lg:flex-none" aria-label={t('Fuel type filter')}>{(['all', 'petrol', 'diesel'] as const).map((fuel) => <button key={fuel} type="button" onClick={() => { setSelectedStation(null); setSelectedFuel(fuel); }} aria-pressed={selectedFuel === fuel} className={`h-10 min-w-0 flex-1 whitespace-nowrap px-3 text-[10px] font-black uppercase transition lg:flex-none ${selectedFuel === fuel ? 'bg-orange text-white' : 'text-muted hover:text-forest'}`}>{t(fuel === 'all' ? 'All' : fuel === 'petrol' ? 'Petrol' : 'Diesel')}</button>)}</div><div className="flex shrink-0 border border-line bg-white lg:hidden"><button aria-label={t('Show station list')} onClick={() => setActiveTab('list')} className={`grid h-10 w-11 place-items-center ${activeTab === 'list' ? 'bg-forest text-white' : 'text-muted'}`}><List className="h-4 w-4" /></button><button aria-label={t('Show map')} onClick={showMap} className={`grid h-10 w-11 place-items-center ${activeTab === 'map' ? 'bg-forest text-white' : 'text-muted'}`}><MapIcon className="h-4 w-4" /></button></div></div>
-              <div className="no-scrollbar flex min-w-0 gap-1 overflow-x-auto border-y border-line/70 py-1 lg:border-0 lg:py-0">{STATUS_FILTERS.map((filter) => <button key={filter.id} onClick={() => setSelectedStatus(filter.id)} aria-pressed={selectedStatus === filter.id} className={`inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap px-3 text-xs font-bold transition ${selectedStatus === filter.id ? 'bg-[#dfead7] text-forest' : 'text-muted hover:bg-white'}`}>{filter.id !== 'all' && <span className={`h-2 w-2 rounded-full ${filter.id === 'available' ? 'bg-[#398151]' : filter.id === 'low' ? 'bg-[#df972f]' : filter.id === 'stale' ? 'bg-[#795548]' : 'bg-[#c9583c]'}`} />}{t(filter.label)}</button>)}</div>
-            </div>
+
+            {locationState === 'outside' ? (
+              <p role="status" className="mt-2 border-l-2 border-orange pl-3 text-xs font-bold text-muted">
+                {t('Your location is outside Malawi, so the national map is shown.')}
+              </p>
+            ) : locationState === 'error' ? (
+              <p role="status" className="mt-2 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">
+                {t('Location unavailable. Allow location access in your browser and try again.')}
+              </p>
+            ) : notificationState === 'denied' ? (
+              <p role="status" className="mt-2 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">
+                {t('Notifications are blocked. Enable them in your browser settings to use station alerts.')}
+              </p>
+            ) : null}
           </div>
         </section>
 
@@ -396,14 +499,189 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* Floating Mobile Map/List Toggle Pill */}
+        <div className="fixed bottom-6 left-1/2 z-30 -translate-x-1/2 lg:hidden">
+          <button
+            type="button"
+            onClick={() => {
+              if (activeTab === 'list') {
+                showMap();
+              } else {
+                setActiveTab('list');
+              }
+            }}
+            className="inline-flex items-center gap-2 rounded-full border-2 border-white/25 bg-forest px-5 py-3 text-xs font-black text-white shadow-[0_12px_36px_rgba(3,46,32,0.45)] transition hover:bg-[#0b5940] active:scale-95"
+          >
+            {activeTab === 'list' ? (
+              <>
+                <MapIcon className="h-4 w-4 text-[#f5aa54]" />
+                <span>{t('Map view')}</span>
+              </>
+            ) : (
+              <>
+                <List className="h-4 w-4 text-[#f5aa54]" />
+                <span>{t('List view')}</span>
+              </>
+            )}
+          </button>
+        </div>
+
         <SponsorBanner placement="banner" city={selectedCity} className="border-x-0 border-b-0" />
 
         <section className="border-t border-line bg-[#eee9dd]"><div className="mx-auto grid max-w-[1440px] gap-6 px-5 py-8 sm:grid-cols-2 sm:px-8 lg:px-12"><div><p className="eyebrow text-orange">No data? No problem.</p><h2 className="mt-2 text-xl font-black">Alipo works wherever you drive.</h2></div><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center border border-forest/20 text-forest"><MapPin className="h-5 w-5" /></div><div><p className="text-xs text-muted">Community reports</p><p className="font-bold">Built around Malawi</p></div></div></div></section>
       </main>
       <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo</strong> — Find fuel. Share updates. Keep Malawi moving.</p><p><Link href="/privacy" className="underline decoration-white/30 underline-offset-4 transition hover:text-white">Privacy Policy</Link> · <a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · Created by <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
+      
+      {/* Filters Modal / Sheet */}
+      {isFiltersModalOpen ? (
+        <div
+          className="fixed inset-0 z-[2200] flex items-center justify-center overflow-y-auto bg-[#032e20]/75 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="filters-title"
+        >
+          <div className="w-full max-w-md border border-white/20 bg-[#fbf8f1] p-5 shadow-[0_30px_100px_rgba(0,0,0,.4)] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4 text-forest" />
+                <h3 id="filters-title" className="text-base font-black text-ink">{t('Filter stations')}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFiltersModalOpen(false)}
+                className="grid h-8 w-8 place-items-center text-muted hover:text-ink"
+                aria-label={t('Close filters')}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-5 py-4">
+              {/* Status Filter */}
+              <div>
+                <label className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">
+                  {t('Fuel availability')}
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {STATUS_FILTERS.map((filter) => (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      onClick={() => setSelectedStatus(filter.id)}
+                      className={`inline-flex h-9 items-center gap-2 border px-3 text-xs font-bold transition ${
+                        selectedStatus === filter.id
+                          ? 'border-forest bg-[#dfead7] text-forest font-black'
+                          : 'border-line bg-white text-muted hover:border-forest hover:text-ink'
+                      }`}
+                    >
+                      {filter.id !== 'all' && (
+                        <span
+                          className={`h-2 w-2 rounded-full ${
+                            filter.id === 'available'
+                              ? 'bg-[#398151]'
+                              : filter.id === 'low'
+                              ? 'bg-[#df972f]'
+                              : filter.id === 'stale'
+                              ? 'bg-[#795548]'
+                              : 'bg-[#c9583c]'
+                          }`}
+                        />
+                      )}
+                      {t(filter.label)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Radius Filter */}
+              <div>
+                <label className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">
+                  {t('Search radius')}
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[5, 10, 20, 30, 50].map((radius) => (
+                    <button
+                      key={radius}
+                      type="button"
+                      disabled={selectedCity === 'All Cities'}
+                      onClick={() => { setSelectedStation(null); setRadiusKm(radius); }}
+                      className={`h-9 border px-3 text-xs font-bold transition disabled:opacity-40 ${
+                        radiusKm === radius && selectedCity !== 'All Cities'
+                          ? 'border-forest bg-forest text-white font-black'
+                          : 'border-line bg-white text-ink hover:border-forest'
+                      }`}
+                    >
+                      {radius} km
+                    </button>
+                  ))}
+                </div>
+                {selectedCity === 'All Cities' && (
+                  <p className="mt-1.5 text-[10px] text-muted">
+                    Radius applies when viewing specific cities or your location.
+                  </p>
+                )}
+              </div>
+
+              {/* Station Alerts */}
+              {notificationState !== 'unsupported' && (
+                <div className="border-t border-line pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <strong className="block text-xs font-black text-ink">{t('Station alerts')}</strong>
+                      <span className="text-[10px] text-muted">
+                        {t('When safely parked, help other drivers with a quick fuel report.')}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { void toggleStationAlerts(); }}
+                      className={`inline-flex h-9 shrink-0 items-center gap-1.5 border px-3 text-xs font-bold transition ${
+                        stationAlertsEnabled
+                          ? 'border-forest bg-forest text-white'
+                          : 'border-line bg-white text-muted hover:border-forest'
+                      }`}
+                    >
+                      <Bell className="h-3.5 w-3.5" />
+                      {t(stationAlertsEnabled ? 'Alerts on' : 'Station alerts')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between border-t border-line pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStatus('all');
+                  setRadiusKm(5);
+                  setIsFiltersModalOpen(false);
+                }}
+                className="text-xs font-bold text-muted underline hover:text-ink"
+              >
+                {t('Reset filters')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFiltersModalOpen(false)}
+                className="bg-forest px-6 py-2.5 text-xs font-black text-white hover:bg-[#0b5940]"
+              >
+                {t('Apply filters')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <ReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} stations={stations} selectedStation={selectedStation} onReportSubmitted={fetchStations} />
       <HowItWorks isOpen={isHowItWorksOpen} onClose={closeHowItWorks} />
       <NameSuggestions isOpen={isNameSuggestionsOpen} onClose={() => setIsNameSuggestionsOpen(false)} onConfirmed={fetchStations} />
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onAllowLocation={activateLocation}
+        isLocationActive={locationState === 'active'}
+      />
     </div>
   );
 }

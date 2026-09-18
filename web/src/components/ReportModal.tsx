@@ -65,19 +65,173 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
       {success ? <div className="px-5 py-8 text-center sm:px-7"><div className="mx-auto grid h-14 w-14 place-items-center bg-[#dfead7] text-forest"><Check className="h-7 w-7" /></div><h3 className="mt-4 text-2xl font-black">Zikomo kwambiri.</h3><p className="mt-1.5 text-sm text-muted">{t(successMessage)}</p><SponsorBanner placement="post_report" city={selectedStation?.city} /><div className="mt-6 flex justify-center"><button type="button" onClick={() => { setSuccess(false); closeModal(); }} className="inline-flex min-h-11 items-center justify-center bg-forest px-8 text-xs font-black text-white transition hover:bg-[#0b5940]">{t('Done')}</button></div></div> :
       <form onSubmit={handleSubmit} className="space-y-6 p-5 sm:p-7">
         {errorMsg && <p className="border border-[#c9583c]/30 bg-[#f9e1d9] p-3 text-xs font-bold text-[#9d321d]">{errorMsg}</p>}
-        <label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Fuel station')}</span><select value={stationId} onChange={(event) => setStationId(event.target.value)} className="h-12 w-full border border-line bg-white px-3 text-sm font-bold outline-none focus:border-forest">{stations.map((station) => <option key={station.id} value={station.id}>{station.name} — {station.district}</option>)}</select></label>
+        <label className="block">
+          <span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Fuel station')}</span>
+          <select value={stationId} onChange={(event) => setStationId(event.target.value)} className="h-12 w-full border border-line bg-white px-3 text-sm font-bold outline-none focus:border-forest">
+            {stations.map((station) => <option key={station.id} value={station.id}>{station.name} — {station.district}</option>)}
+          </select>
+        </label>
 
-        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Report type')}</legend><div className="grid gap-2 sm:grid-cols-3"><button type="button" onClick={() => setReportType('fuel')} className={`min-h-16 border p-3 text-left ${reportType === 'fuel' ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><strong className="block text-xs">{t('Fuel update')}</strong><span className="mt-1 block text-[10px] opacity-65">{t('Availability and queue')}</span></button><button type="button" onClick={() => setReportType('name_suggestion')} className={`flex min-h-16 items-center gap-2 border p-3 text-left ${reportType === 'name_suggestion' ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><PencilLine className="h-5 w-5" /><span><strong className="block text-xs">{t('Correct station name')}</strong><span className="mt-1 block text-[10px] opacity-65">{t('Suggest the right name')}</span></span></button><button type="button" onClick={() => setReportType('missing_station')} className={`flex min-h-16 items-center gap-2 border p-3 text-left ${reportType === 'missing_station' ? 'border-[#c9583c] bg-[#f9e1d9] text-[#9d321d]' : 'border-line bg-white'}`}><MapPinOff className="h-5 w-5" /><span><strong className="block text-xs">{t('Station does not exist')}</strong><span className="mt-1 block text-[10px] opacity-65">{t('Flag an incorrect location')}</span></span></button></div></fieldset>
+        {reportType === 'fuel' ? (
+          <>
+            <fieldset>
+              <legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Fuel situation')}</legend>
+              <div className="grid grid-cols-3 gap-2">
+                {STATUS_OPTIONS.map(({ value, title, detail, icon: Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setStatus(value)}
+                    className={`flex flex-col items-center justify-center border p-3 text-center transition min-h-[96px] ${
+                      status === value
+                        ? 'border-forest bg-[#e5eddc] text-forest shadow-xs'
+                        : 'border-line bg-white hover:border-[#98a493]'
+                    }`}
+                  >
+                    <Icon className="h-6 w-6 shrink-0" />
+                    <strong className="mt-1.5 block text-xs leading-tight">{t(title)}</strong>
+                    <span className="mt-0.5 block text-[9px] opacity-70 leading-tight">{t(detail)}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
 
-        {reportType === 'fuel' ? <><fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Fuel situation')}</legend><div className="grid grid-cols-2 gap-2">{STATUS_OPTIONS.map(({ value, title, detail, icon: Icon }) => <button key={value} type="button" onClick={() => setStatus(value)} className={`flex min-h-20 items-center gap-3 border p-3 text-left transition ${status === value ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white hover:border-[#98a493]'}`}><Icon className="h-5 w-5 shrink-0" /><span><strong className="block text-xs">{t(title)}</strong><span className="mt-0.5 block text-[10px] opacity-65">{t(detail)}</span></span></button>)}</div></fieldset>
+            <fieldset>
+              <legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Fuel type')}</legend>
+              <div className="grid grid-cols-3 gap-2">
+                {(['both', 'petrol', 'diesel'] as FuelType[]).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setFuelType(type)}
+                    className={`h-11 border text-xs font-black capitalize transition ${
+                      fuelType === type ? 'border-forest bg-forest text-white' : 'border-line bg-white text-ink hover:border-forest'
+                    }`}
+                  >
+                    {t(type === 'both' ? 'Both' : type === 'petrol' ? 'Petrol' : 'Diesel')}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
 
-        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Fuel type')}</legend><div className="grid grid-cols-3 gap-2">{(['both', 'petrol', 'diesel'] as FuelType[]).map((type) => <button key={type} type="button" onClick={() => setFuelType(type)} className={`h-10 border text-xs font-black capitalize ${fuelType === type ? 'border-forest bg-forest text-white' : 'border-line bg-white text-ink'}`}>{t(type === 'both' ? 'Both' : type === 'petrol' ? 'Petrol' : 'Diesel')}</button>)}</div></fieldset>
+            <fieldset>
+              <legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Queue length')}</legend>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { id: 'none', label: 'None', time: '< 5 min' },
+                  { id: 'short', label: 'Short', time: '< 15 min' },
+                  { id: 'medium', label: 'Medium', time: '15–45 min' },
+                  { id: 'long', label: 'Long', time: '> 45 min' }
+                ].map((queue) => (
+                  <button
+                    key={queue.id}
+                    type="button"
+                    onClick={() => setQueueEstimate(queue.id as QueueEstimate)}
+                    className={`border px-2 py-2.5 text-center transition ${
+                      queueEstimate === queue.id ? 'border-forest bg-[#e5eddc] text-forest font-bold' : 'border-line bg-white text-ink hover:border-forest'
+                    }`}
+                  >
+                    <strong className="block text-xs">{t(queue.label)}</strong>
+                    <span className="text-[9px] text-muted">{queue.time}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          </>
+        ) : reportType === 'name_suggestion' ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-forest">{t('Correct station name')}</span>
+              <button
+                type="button"
+                onClick={() => setReportType('fuel')}
+                className="text-xs font-bold text-muted underline hover:text-forest"
+              >
+                {t('Back to fuel report')}
+              </button>
+            </div>
+            <label className="block">
+              <span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Suggested station name')}</span>
+              <input
+                value={suggestedName}
+                onChange={(event) => setSuggestedName(event.target.value)}
+                required
+                minLength={2}
+                maxLength={200}
+                placeholder={t('Enter the correct station name')}
+                className="h-12 w-full border border-line bg-white px-3 text-sm font-bold outline-none focus:border-forest"
+              />
+            </label>
+            <p className="border-l-2 border-forest bg-[#e5eddc] px-4 py-3 text-xs leading-5 text-forest">
+              {t('Two matching suggestions from different phone numbers will confirm and update the station name.')}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#9d321d]">{t('Station does not exist')}</span>
+              <button
+                type="button"
+                onClick={() => setReportType('fuel')}
+                className="text-xs font-bold text-muted underline hover:text-forest"
+              >
+                {t('Back to fuel report')}
+              </button>
+            </div>
+            <p className="border-l-2 border-[#c9583c] bg-[#f9e1d9]/60 px-4 py-3 text-xs leading-5 text-[#713021]">
+              {t('Five reports from different phone numbers will remove this station from public results. Reports are retained for review.')}
+            </p>
+          </div>
+        )}
 
-        <fieldset><legend className="mb-2 text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Queue length')}</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[{ id: 'none', label: 'None', time: '< 5 min' }, { id: 'short', label: 'Short', time: '< 15 min' }, { id: 'medium', label: 'Medium', time: '15–45 min' }, { id: 'long', label: 'Long', time: '> 45 min' }].map((queue) => <button key={queue.id} type="button" onClick={() => setQueueEstimate(queue.id as QueueEstimate)} className={`border px-2 py-2.5 text-center ${queueEstimate === queue.id ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line bg-white'}`}><strong className="block text-xs">{t(queue.label)}</strong><span className="text-[9px] text-muted">{queue.time}</span></button>)}</div></fieldset></> : reportType === 'name_suggestion' ? <div className="space-y-3"><label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Suggested station name')}</span><input value={suggestedName} onChange={(event) => setSuggestedName(event.target.value)} required minLength={2} maxLength={200} placeholder={t('Enter the correct station name')} className="h-12 w-full border border-line bg-white px-3 text-sm font-bold outline-none focus:border-forest" /></label><p className="border-l-2 border-forest bg-[#e5eddc] px-4 py-3 text-xs leading-5 text-forest">{t('Two matching suggestions from different phone numbers will confirm and update the station name.')}</p></div> : <p className="border-l-2 border-[#c9583c] bg-[#f9e1d9]/60 px-4 py-3 text-xs leading-5 text-[#713021]">{t('Five reports from different phone numbers will remove this station from public results. Reports are retained for review.')}</p>}
+        <label className="block">
+          <span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">
+            {t('Phone')} <em className="font-normal normal-case text-muted">({t(reportType === 'fuel' ? 'optional' : 'required to prevent duplicate reports')})</em>
+          </span>
+          <input
+            type="tel"
+            required={reportType !== 'fuel'}
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            placeholder="+265..."
+            className="h-11 w-full border border-line bg-white px-3 text-sm outline-none focus:border-forest"
+          />
+        </label>
 
-        <label className="block"><span className="mb-2 block text-[11px] font-black uppercase tracking-[.14em] text-muted">{t('Phone')} <em className="font-normal normal-case">{t(reportType === 'fuel' ? 'optional' : 'required to prevent duplicate reports')}</em></span><input type="tel" required={reportType !== 'fuel'} value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+265..." className="h-11 w-full border border-line bg-white px-3 text-sm outline-none focus:border-forest" /></label>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="inline-flex h-12 w-full items-center justify-center gap-2 bg-forest text-sm font-black text-white transition hover:bg-[#0b5940] disabled:opacity-50"
+        >
+          <Send className="h-4 w-4" />
+          {t(isSubmitting ? 'Submitting report...' : 'Submit report')}
+        </button>
 
-        <button type="submit" disabled={isSubmitting} className="inline-flex h-12 w-full items-center justify-center gap-2 bg-forest text-sm font-black text-white transition hover:bg-[#0b5940] disabled:opacity-50"><Send className="h-4 w-4" />{t(isSubmitting ? 'Submitting report...' : 'Submit report')}</button>
+        {reportType === 'fuel' ? (
+          <div className="border-t border-line/70 pt-3 text-center">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted">
+              <span>{t('Need to report a missing station or name error?')}</span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setReportType('name_suggestion')}
+                  className="font-bold text-forest underline hover:text-orange"
+                >
+                  {t('Correct station name')}
+                </button>
+                <span>·</span>
+                <button
+                  type="button"
+                  onClick={() => setReportType('missing_station')}
+                  className="font-bold text-[#9d321d] underline hover:text-orange"
+                >
+                  {t('Station does not exist')}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <p className="text-center text-[10px] text-muted">{t('Reports are timestamped and cross-checked by the community.')}</p>
       </form>}
     </div>

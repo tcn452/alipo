@@ -67,6 +67,41 @@ const CHICHEWA: Record<string, string> = {
   'Proposed pin': 'Chizindikiro choperekedwa', 'Closest station': 'Siteshoni yapafupi', '{metres}m apart': 'Zasiyana mamita {metres}', 'Closest station: {metres}m': 'Siteshoni yapafupi: mamita {metres}', 'Within 75m of existing station': 'Mkati mwa mamita 75 kuchokera ku siteshoni yomwe ilipo', 'More than 75m away (potential new station)': 'Kupitirira mamita 75 (mwina siteshoni yatsopano)', 'Closest': 'Yapafupi', 'External OSM': 'OSM yakunja', 'Close': 'Tsekani',
   'Your location': 'Malo anu', 'Map temporarily unavailable': 'Mapu sakupezeka pakadali pano', 'Please check your connection and refresh to load the Malawi map.': 'Onani intaneti yanu ndipo tsitsimutsani kuti mukweze mapu a Malawi.', 'Loading Malawi map': 'Tikukweza mapu a Malawi', 'Loading the live fuel map': 'Tikukweza mapu a mafuta a pompopompo',
   'No recent update': 'Palibe kusintha kwaposachedwa', 'Recently': 'Posachedwa', 'Just now': 'Pakali pano',
+  'Welcome to Alipo': 'Takulandirani ku Alipo',
+  'Find fuel anywhere in Malawi': 'Pezani mafuta kulikonse ku Malawi',
+  'Choose your language': 'Sankhani chilankhulo chanu',
+  'Chichewa': 'Chichewa',
+  'English': 'English',
+  'Find fuel near you': 'Pezani mafuta pafupi ndi inu',
+  'Allow location to see the closest petrol and diesel stations in Malawi.': 'Lolani kugwiritsa ntchito malo anu kuti muone masiteshoni a petulo ndi dizilo apafupi ku Malawi.',
+  'Allow location': 'Lolani malo',
+  'Location enabled': 'Malo atsegulidwa',
+  'How to read fuel reports': 'Mmene mungawerengere malipoti a mafuta',
+  'Green: Fuel is available': 'Wobiriwira: Mafuta alipo',
+  'Orange: Running low or long queue': 'Chikasu: Atsala pang’ono kapena mzere wautali',
+  'Red: Pumps are dry': 'Wofiira: Mafuta palibe',
+  'Help other drivers': 'Thandizani oyendetsa ena',
+  'Tap "Update" whenever you see fuel to keep Malawi moving.': 'Dinani "Sinthani" nthawi iliyonse mukapeza mafuta kuti muthandize ena.',
+  'Next': 'Lotsatira',
+  'Back': 'Bwererani',
+  'Skip': 'Dumphani',
+  'Get started': 'Yambani',
+  'Step {current} of {total}': 'Gawo {current} pa {total}',
+  'More details': 'Zambiri',
+  'Hide details': 'Bisani zambiri',
+  'Report history': 'Mbiri ya malipoti',
+  'Update fuel': 'Tiuzeni za mafuta',
+  'Filters': 'Sefani',
+  'Filter stations': 'Sefani malo amafuta',
+  'Active filters': 'Zosefera zogwira ntchito',
+  'Close filters': 'Tsekani zosefera',
+  'Reset filters': 'Bwezeretsani zosefera',
+  'Apply filters': 'Gwiritsani ntchito zosefera',
+  'Map view': 'Onani mapu',
+  'List view': 'Onani mndandanda',
+  'Need to report a missing station or name error?': 'Kodi mukufuna kukonza dzina kapena kunena za malo omwe kulibe?',
+  'Other report options': 'Zosankha zina za lipoti',
+  'Back to fuel report': 'Bwererani ku lipoti la mafuta',
 };
 
 type Values = Record<string, string | number>;
@@ -77,7 +112,26 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, updateLanguage] = useState<Language>('en');
   useEffect(() => {
     const saved = window.localStorage.getItem('alipo-language');
-    if (saved === 'ny') updateLanguage('ny');
+    if (saved === 'ny' || saved === 'en') {
+      updateLanguage(saved);
+      return;
+    }
+    // Automatically detect device language for Chichewa / Chewa / Nyanja
+    try {
+      const browserLangs = window.navigator.languages && window.navigator.languages.length
+        ? window.navigator.languages
+        : [window.navigator.language];
+      const isChichewa = browserLangs.some((lang) => {
+        if (!lang) return false;
+        const lower = lang.toLowerCase();
+        return lower.startsWith('ny') || lower.startsWith('nya');
+      });
+      if (isChichewa) {
+        updateLanguage('ny');
+      }
+    } catch {
+      // Fallback gracefully to default
+    }
   }, []);
   const setLanguage = useCallback((next: Language) => {
     updateLanguage(next);
