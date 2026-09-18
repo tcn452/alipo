@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   applicationName: 'Alipo',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Alipo' },
   icons: { icon: '/favicon.png', apple: '/apple-touch-icon.png' },
+  other: {
+    'google-adsense-account': 'ca-pub-7634159030109888',
+  },
 };
 
 export const viewport = {
@@ -36,6 +39,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="icon" href="/favicon.png" type="image/png" />
+        <meta name="google-adsense-account" content="ca-pub-7634159030109888" />
         <Script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7634159030109888"
