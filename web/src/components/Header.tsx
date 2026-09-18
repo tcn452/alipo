@@ -12,9 +12,23 @@ export function Header({ onOpenReport }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 h-[72px] border-b border-line bg-[#fbf8f1]/95 backdrop-blur-xl">
       <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between px-4 sm:px-8 lg:px-12">
-        <Link href="/" className="flex items-center gap-2 sm:gap-3" aria-label="Alipo home">
-          <Image src="/alipo-mark.jpg" alt="Alipo" width={46} height={46} priority className="h-11 w-11 object-cover object-center" />
-          <div><p className="text-xl font-black leading-none tracking-[-.04em] text-forest">Alipo</p><p className="mt-1 hidden text-[9px] font-black uppercase tracking-[.2em] text-orange sm:block">{t('Fuel is there')}</p></div>
+        <Link href="/" className="flex items-center" aria-label="Alipo home">
+          <Image
+            src="/alipo-mark.png"
+            alt="Alipo"
+            width={46}
+            height={60}
+            priority
+            className="h-11 w-auto object-contain sm:hidden"
+          />
+          <Image
+            src="/alipo-lockup.png"
+            alt="Alipo — Fuel is there"
+            width={160}
+            height={62}
+            priority
+            className="hidden h-12 w-auto object-contain sm:block"
+          />
         </Link>
 
         <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary navigation">
