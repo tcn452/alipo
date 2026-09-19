@@ -9,7 +9,7 @@ import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
 import { SponsorBanner } from '@/components/SponsorBanner';
 import { CITIES, CITY_CENTERS, DEFAULT_CITY, classifyStationBrand, getStationStockStatus, STATION_STOCK_CONFIG } from '@/lib/constants';
-import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition, isSamsungInternet, isStandalonePwa } from '@/lib/geolocation';
+import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition, isSamsungInternet, isStandalonePwa, subscribeGeolocationPermissionChange } from '@/lib/geolocation';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { Station } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
@@ -279,6 +279,27 @@ export default function HomePage() {
       cancelled = true;
     };
   }, [activateLocation]);
+
+  // If the user enables Location in Android settings and returns, retry automatically.
+  useEffect(() => {
+    const maybeRetry = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (locationState !== 'denied' && locationState !== 'error') return;
+      void queryGeolocationPermission().then((permission) => {
+        if (permission === 'granted') activateLocation();
+      });
+    };
+    const unsubscribe = subscribeGeolocationPermissionChange((state) => {
+      if (state === 'granted') activateLocation();
+    });
+    document.addEventListener('visibilitychange', maybeRetry);
+    window.addEventListener('focus', maybeRetry);
+    return () => {
+      unsubscribe();
+      document.removeEventListener('visibilitychange', maybeRetry);
+      window.removeEventListener('focus', maybeRetry);
+    };
+  }, [activateLocation, locationState]);
 
   useEffect(() => {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) {

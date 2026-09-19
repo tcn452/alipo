@@ -32,6 +32,59 @@ export function isStandalonePwa(): boolean {
   );
 }
 
+export function isAndroidDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Android/i.test(navigator.userAgent);
+}
+
+/**
+ * Best-effort Android Settings shortcuts via Chrome/Samsung intent URLs.
+ * These must run from a user tap. They cannot force a web permission re-prompt,
+ * and they cannot always open the exact Alipo app Permissions page (WebAPK
+ * package names are not exposed to the page).
+ */
+export function openAndroidLocationSettings(): boolean {
+  if (typeof window === 'undefined' || !isAndroidDevice()) return false;
+  // Opens the system Location (GPS) screen — not the per-app permission toggle.
+  window.location.href = 'intent:#Intent;action=android.settings.LOCATION_SOURCE_SETTINGS;end';
+  return true;
+}
+
+export function openAndroidAppListSettings(): boolean {
+  if (typeof window === 'undefined' || !isAndroidDevice()) return false;
+  // Opens the installed-apps list so the user can tap Alipo → Permissions → Location.
+  window.location.href = 'intent:#Intent;action=android.settings.APPLICATION_SETTINGS;end';
+  return true;
+}
+
+export function subscribeGeolocationPermissionChange(onChange: (state: GeolocationPermissionState) => void): () => void {
+  let cancelled = false;
+  let permissionStatus: PermissionStatus | null = null;
+  const emit = () => {
+    if (!permissionStatus) return;
+    if (permissionStatus.state === 'granted' || permissionStatus.state === 'prompt' || permissionStatus.state === 'denied') {
+      onChange(permissionStatus.state);
+    }
+  };
+
+  void (async () => {
+    try {
+      if (!navigator.permissions?.query) return;
+      permissionStatus = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+      if (cancelled) return;
+      emit();
+      permissionStatus.addEventListener('change', emit);
+    } catch {
+      // Unsupported — ignore.
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+    permissionStatus?.removeEventListener('change', emit);
+  };
+}
+
 export async function queryGeolocationPermission(): Promise<GeolocationPermissionState> {
   if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return 'unknown';
   try {

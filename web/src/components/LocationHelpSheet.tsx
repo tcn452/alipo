@@ -1,8 +1,14 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { LocateFixed, X } from 'lucide-react';
-import { isSamsungInternet, isStandalonePwa } from '@/lib/geolocation';
+import { ExternalLink, LocateFixed, Settings, X } from 'lucide-react';
+import {
+  isAndroidDevice,
+  isSamsungInternet,
+  isStandalonePwa,
+  openAndroidAppListSettings,
+  openAndroidLocationSettings,
+} from '@/lib/geolocation';
 import { useLanguage } from '@/lib/i18n';
 
 interface LocationHelpSheetProps {
@@ -17,11 +23,13 @@ export function LocationHelpSheet({ isOpen, onClose, onRetry }: LocationHelpShee
   const titleId = useId();
   const [isPwa, setIsPwa] = useState(false);
   const [isSamsung, setIsSamsung] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     setIsPwa(isStandalonePwa());
     setIsSamsung(isSamsungInternet());
+    setIsAndroid(isAndroidDevice());
   }, [isOpen]);
 
   useEffect(() => {
@@ -66,6 +74,9 @@ export function LocationHelpSheet({ isOpen, onClose, onRetry }: LocationHelpShee
                 {t('Turn on location for Alipo')}
               </h2>
               <p className="mt-1 text-xs leading-5 text-muted">{subtitle}</p>
+              <p className="mt-2 text-[11px] font-bold leading-4 text-[#9a5b12]">
+                {t('Browsers cannot show the location prompt again after it was blocked. Use the shortcuts below, then return and try again.')}
+              </p>
             </div>
           </div>
           <button
@@ -78,6 +89,38 @@ export function LocationHelpSheet({ isOpen, onClose, onRetry }: LocationHelpShee
             <X className="h-4 w-4" />
           </button>
         </div>
+
+        {isAndroid ? (
+          <div className="mt-4 grid gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                openAndroidLocationSettings();
+              }}
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 bg-orange px-3 text-xs font-black text-white hover:bg-[#d95a1c]"
+            >
+              <Settings className="h-4 w-4" />
+              {t('Open phone Location settings')}
+            </button>
+            {isPwa ? (
+              <button
+                type="button"
+                onClick={() => {
+                  openAndroidAppListSettings();
+                }}
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 border-2 border-forest bg-white px-3 text-xs font-black text-forest hover:bg-[#e5eddc]"
+              >
+                <ExternalLink className="h-4 w-4" />
+                {t('Open Apps settings (then tap Alipo)')}
+              </button>
+            ) : null}
+            <p className="text-[10px] leading-4 text-muted">
+              {isPwa
+                ? t('After opening Apps settings: Alipo → Permissions → Location → Allow. Then come back here.')
+                : t('Also allow Location for this site via the lock icon in the address bar if your browser shows one.')}
+            </p>
+          </div>
+        ) : null}
 
         {isPwa ? (
           <ol className="mt-4 space-y-3 text-xs leading-5 text-ink">
