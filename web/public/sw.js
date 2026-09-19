@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alipo-shell-v3';
+const CACHE_NAME = 'alipo-shell-v4';
 const APP_SHELL = ['/', '/manifest.json', '/favicon.png', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -37,6 +37,9 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const action = event.action;
+  if (action === 'dismiss') return;
+
   const stationId = event.notification.data?.stationId;
   const reportUrl = stationId ? `/?reportStation=${encodeURIComponent(stationId)}` : '/';
 
