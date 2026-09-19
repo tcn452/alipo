@@ -185,8 +185,12 @@ export function OnboardingModal({
                   <div>
                     <button
                       type="button"
-                      onClick={() => {
+                      onPointerUp={(event) => {
+                        if (event.pointerType === 'mouse' && event.button !== 0) return;
                         onAllowLocation();
+                      }}
+                      onClick={(event) => {
+                        if (event.detail === 0) onAllowLocation();
                       }}
                       className="inline-flex h-11 items-center justify-center gap-2 border-2 border-forest bg-forest px-5 text-xs font-black text-white transition hover:bg-[#0b5940]"
                     >

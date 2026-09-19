@@ -6,15 +6,20 @@ export type LocationRequestErrorCode = 'denied' | 'unavailable' | 'timeout' | 'u
 
 export const HIGH_ACCURACY_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,
-  timeout: 15_000,
+  timeout: 20_000,
   maximumAge: 0,
 };
 
 export const LOW_ACCURACY_OPTIONS: PositionOptions = {
   enableHighAccuracy: false,
-  timeout: 20_000,
+  timeout: 30_000,
   maximumAge: 60_000,
 };
+
+export function isSamsungInternet(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /SamsungBrowser/i.test(navigator.userAgent);
+}
 
 export async function queryGeolocationPermission(): Promise<GeolocationPermissionState> {
   if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return 'unknown';
@@ -38,8 +43,9 @@ export function mapPositionError(error: GeolocationPositionError | null | undefi
 }
 
 /**
- * Request a one-shot position. Must be called directly from a user gesture
- * (tap/click) so Samsung Internet and similar browsers will show the prompt.
+ * Request a one-shot position. Must be invoked directly from a user gesture
+ * (pointerup/click), and ideally before any React setState, so Samsung Internet
+ * still treats the call as user-activated.
  */
 export function requestCurrentPosition(
   onSuccess: (position: GeolocationPosition) => void,
@@ -49,6 +55,11 @@ export function requestCurrentPosition(
     onError('unsupported');
     return;
   }
+
+  // Samsung Internet is more reliable with network location first; GPS-first often
+  // returns denied/timeout without showing a prompt when Location services are restricted.
+  const primary = isSamsungInternet() ? LOW_ACCURACY_OPTIONS : HIGH_ACCURACY_OPTIONS;
+  const fallback = isSamsungInternet() ? HIGH_ACCURACY_OPTIONS : LOW_ACCURACY_OPTIONS;
 
   navigator.geolocation.getCurrentPosition(
     onSuccess,
@@ -61,10 +72,10 @@ export function requestCurrentPosition(
       navigator.geolocation.getCurrentPosition(
         onSuccess,
         (secondError) => onError(mapPositionError(secondError)),
-        LOW_ACCURACY_OPTIONS,
+        fallback,
       );
     },
-    HIGH_ACCURACY_OPTIONS,
+    primary,
   );
 }
 
@@ -72,9 +83,13 @@ export function watchUserPosition(
   onPosition: (position: GeolocationPosition) => void,
   onError: (code: LocationRequestErrorCode) => void,
 ): number {
+  const options: PositionOptions = isSamsungInternet()
+    ? { enableHighAccuracy: false, timeout: 30_000, maximumAge: 60_000 }
+    : { enableHighAccuracy: true, timeout: 20_000, maximumAge: 30_000 };
+
   return navigator.geolocation.watchPosition(
     onPosition,
     (error) => onError(mapPositionError(error)),
-    { enableHighAccuracy: true, timeout: 20_000, maximumAge: 30_000 },
+    options,
   );
 }
