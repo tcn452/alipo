@@ -40,7 +40,7 @@ export function OnboardingModal({
   const { language, setLanguage, t } = useLanguage();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [alertsBusy, setAlertsBusy] = useState(false);
-  const { installEvent, isIos, isStandalone, canOfferInstall, install } = usePwaInstall({
+  const { installEvent, isIos, isStandalone, install } = usePwaInstall({
     autoShowBanner: false,
   });
 
@@ -64,7 +64,7 @@ export function OnboardingModal({
     }
   };
 
-  const showInstall = !isStandalone && canOfferInstall;
+  const showInstall = !isStandalone;
   const showAlerts = notificationState !== 'unsupported';
 
   return (
@@ -287,9 +287,15 @@ export function OnboardingModal({
                           {t('Tap Share, then “Add to Home Screen”.')}
                         </p>
                       ) : (
-                        <p className="border border-forest/20 bg-white px-3 py-2.5 text-[11px] font-bold text-muted">
-                          {t('Use your browser menu to install Alipo when the option appears.')}
-                        </p>
+                        <div className="space-y-2">
+                          <p className="flex items-start gap-2 border border-forest/20 bg-white px-3 py-2.5 text-[11px] font-bold text-ink">
+                            <Download className="mt-0.5 h-4 w-4 shrink-0 text-orange" />
+                            {t('Use your browser menu to install Alipo when the option appears.')}
+                          </p>
+                          <p className="px-1 text-[10px] leading-4 text-muted">
+                            {t('On Chrome or Edge, open the browser menu and choose Install app or Add to Home screen.')}
+                          </p>
+                        </div>
                       )}
                     </div>
                   )}

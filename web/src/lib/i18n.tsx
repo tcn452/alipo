@@ -94,6 +94,7 @@ const CHICHEWA: Record<string, string> = {
   'Stay ready on your phone': 'Khalani okonzeka pa foni yanu',
   'Install Alipo and turn on station alerts so you can check fuel and help nearby drivers.': 'Ikani Alipo ndipo tsegulani zidziwitso za siteshoni kuti muone mafuta ndi kuthandiza oyendetsa apafupi.',
   'Use your browser menu to install Alipo when the option appears.': 'Gwiritsani menyu ya msakatuli kuyika Alipo mukawona chisankhocho.',
+  'On Chrome or Edge, open the browser menu and choose Install app or Add to Home screen.': 'Pa Chrome kapena Edge, tsegulani menyu ya msakatuli ndipo sankhani Install app kapena Add to Home screen.',
   'Alipo is installed on this device': 'Alipo yaikidwa pa chipangizo chino',
   'Station alerts enabled': 'Zidziwitso za siteshoni zatsegulidwa',
   'Enable station alerts': 'Tsegulani zidziwitso za siteshoni',
