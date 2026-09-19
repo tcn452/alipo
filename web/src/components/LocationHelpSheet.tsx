@@ -9,9 +9,10 @@ interface LocationHelpSheetProps {
   onClose: () => void;
   onRetry: () => void;
   isSamsung: boolean;
+  isPwa: boolean;
 }
 
-export function LocationHelpSheet({ isOpen, onClose, onRetry, isSamsung }: LocationHelpSheetProps) {
+export function LocationHelpSheet({ isOpen, onClose, onRetry, isSamsung, isPwa }: LocationHelpSheetProps) {
   const { t } = useLanguage();
   const closeRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
@@ -33,6 +34,12 @@ export function LocationHelpSheet({ isOpen, onClose, onRetry, isSamsung }: Locat
 
   if (!isOpen) return null;
 
+  const subtitle = isPwa
+    ? t('Installed Alipo uses your phone app permissions. Android often will not show a website location prompt inside the app.')
+    : isSamsung
+      ? t('Samsung Internet needs location enabled in the browser and on your phone before it can ask for this site.')
+      : t('Your browser blocked location for this site. Allow it, then try again.');
+
   return (
     <div className="fixed inset-0 z-[2600] flex items-end justify-center bg-[#032e20]/65 p-0 sm:items-center sm:p-4" role="presentation">
       <button type="button" className="absolute inset-0 cursor-default" aria-label={t('Close')} onClick={onClose} />
@@ -51,11 +58,7 @@ export function LocationHelpSheet({ isOpen, onClose, onRetry, isSamsung }: Locat
               <h2 id={titleId} className="text-lg font-black tracking-[-0.02em] text-ink">
                 {t('Turn on location for Alipo')}
               </h2>
-              <p className="mt-1 text-xs leading-5 text-muted">
-                {isSamsung
-                  ? t('Samsung Internet needs location enabled in the browser and on your phone before it can ask for this site.')
-                  : t('Your browser blocked location for this site. Allow it, then try again.')}
-              </p>
+              <p className="mt-1 text-xs leading-5 text-muted">{subtitle}</p>
             </div>
           </div>
           <button
@@ -69,7 +72,36 @@ export function LocationHelpSheet({ isOpen, onClose, onRetry, isSamsung }: Locat
           </button>
         </div>
 
-        {isSamsung ? (
+        {isPwa ? (
+          <ol className="mt-4 space-y-3 text-xs leading-5 text-ink">
+            <li className="border border-line bg-white p-3">
+              <strong className="block font-black">{t('1. Open Android app settings')}</strong>
+              <span className="text-muted">
+                {t('Long-press the Alipo app icon → App info (or Info). Or go to Android Settings → Apps → Alipo.')}
+              </span>
+            </li>
+            <li className="border border-line bg-white p-3">
+              <strong className="block font-black">{t('2. Allow Location for Alipo')}</strong>
+              <span className="text-muted">
+                {t('Tap Permissions → Location → Allow (or Allow only while using the app).')}
+              </span>
+            </li>
+            <li className="border border-line bg-white p-3">
+              <strong className="block font-black">{t('3. Phone location must be on')}</strong>
+              <span className="text-muted">
+                {t('In Android Settings → Location, turn Location on, then return to Alipo and try again.')}
+              </span>
+            </li>
+            {isSamsung ? (
+              <li className="border border-dashed border-orange/40 bg-[#fef3e3] p-3">
+                <strong className="block font-black text-[#9a5b12]">{t('Samsung Internet tip')}</strong>
+                <span className="text-muted">
+                  {t('Also enable Location under Samsung Internet → Settings → Site permissions, then reinstall or reopen the Alipo app.')}
+                </span>
+              </li>
+            ) : null}
+          </ol>
+        ) : isSamsung ? (
           <ol className="mt-4 space-y-3 text-xs leading-5 text-ink">
             <li className="border border-line bg-white p-3">
               <strong className="block font-black">{t('1. Allow Samsung Internet location')}</strong>

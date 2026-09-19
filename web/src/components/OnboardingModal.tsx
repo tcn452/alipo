@@ -16,6 +16,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
+import { isStandalonePwa } from '@/lib/geolocation';
 import { usePwaInstall } from '@/lib/usePwaInstall';
 
 interface OnboardingModalProps {
@@ -172,6 +173,11 @@ export function OnboardingModal({
                 <p className="mt-1.5 text-xs leading-5 text-muted">
                   {t('Allow location to see the closest petrol and diesel stations in Malawi.')}
                 </p>
+                {isStandalonePwa() ? (
+                  <p className="mt-2 border border-orange/30 bg-[#fef3e3] px-3 py-2 text-[11px] font-bold leading-4 text-[#9a5b12]">
+                    {t('In the installed app, if no prompt appears, allow Location under Android Apps → Alipo → Permissions.')}
+                  </p>
+                ) : null}
               </div>
 
               <div className="rounded-lg border border-[#c4d6bc] bg-[#eff5eb] p-4 text-center">

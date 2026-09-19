@@ -21,6 +21,17 @@ export function isSamsungInternet(): boolean {
   return /SamsungBrowser/i.test(navigator.userAgent);
 }
 
+/** True when running as an installed PWA / home-screen app (not a normal browser tab). */
+export function isStandalonePwa(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches ||
+    Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+  );
+}
+
 export async function queryGeolocationPermission(): Promise<GeolocationPermissionState> {
   if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return 'unknown';
   try {
