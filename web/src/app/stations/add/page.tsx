@@ -19,8 +19,7 @@ export default function AddStationPage() {
 
   const captureLocation = () => {
     setError('');
-    setLocating(true);
-    // Call getCurrentPosition synchronously from the tap handler so Samsung Internet shows the prompt.
+    // Start geolocation before UI state updates so Samsung Internet keeps the user gesture.
     requestCurrentPosition(
       ({ coords }) => {
         setLocation({ latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy });
@@ -37,6 +36,7 @@ export default function AddStationPage() {
         );
       },
     );
+    setLocating(true);
   };
 
   useEffect(() => {
@@ -123,7 +123,13 @@ export default function AddStationPage() {
             </label>
             <button
               type="button"
-              onClick={captureLocation}
+              onPointerUp={(event) => {
+                if (event.pointerType === 'mouse' && event.button !== 0) return;
+                captureLocation();
+              }}
+              onClick={(event) => {
+                if (event.detail === 0) captureLocation();
+              }}
               disabled={locating}
               className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-emerald-700 px-4 text-sm font-black text-emerald-800 disabled:opacity-50"
             >

@@ -9,7 +9,7 @@ import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
 import { SponsorBanner } from '@/components/SponsorBanner';
 import { CITIES, CITY_CENTERS, DEFAULT_CITY, classifyStationBrand, getStationStockStatus, STATION_STOCK_CONFIG } from '@/lib/constants';
-import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition } from '@/lib/geolocation';
+import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition, isSamsungInternet, isStandalonePwa, subscribeGeolocationPermissionChange } from '@/lib/geolocation';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { Station } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
@@ -17,6 +17,7 @@ import { useLanguage } from '@/lib/i18n';
 import { HowItWorks } from '@/components/HowItWorks';
 import { NameSuggestions } from '@/components/NameSuggestions';
 import { OnboardingModal } from '@/components/OnboardingModal';
+import { LocationHelpSheet } from '@/components/LocationHelpSheet';
 
 const StationMap = dynamic(() => import('@/components/map/StationMap'), {
   ssr: false,
@@ -128,6 +129,9 @@ export default function HomePage() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [locationState, setLocationState] = useState<'idle' | 'locating' | 'active' | 'outside' | 'error' | 'denied'>('idle');
+  const [isLocationHelpOpen, setIsLocationHelpOpen] = useState(false);
+  const [isSamsungBrowser, setIsSamsungBrowser] = useState(false);
+  const [isPwaMode, setIsPwaMode] = useState(false);
   const [dismissedArrivalStationId, setDismissedArrivalStationId] = useState<string | null>(null);
   const [stationAlertsEnabled, setStationAlertsEnabled] = useState(false);
   const [notificationState, setNotificationState] = useState<'ready' | 'unsupported' | 'denied'>('ready');
@@ -135,6 +139,7 @@ export default function HomePage() {
   const mapSectionRef = useRef<HTMLDivElement>(null);
   const locationWatchRef = useRef<number | null>(null);
   const lastTrackedLocationRef = useRef<[number, number] | null>(null);
+  const lastLocationRequestAtRef = useRef(0);
 
   const showMap = useCallback(() => {
     setSelectedStation(null);
@@ -221,8 +226,24 @@ export default function HomePage() {
       setLocationState('error');
       return;
     }
-    setLocationState('locating');
-    // Call getCurrentPosition synchronously from the tap handler so Samsung Internet shows the prompt.
+    const now = Date.now();
+    if (now - lastLocationRequestAtRef.current < 700) return;
+    lastLocationRequestAtRef.current = now;
+
+    const standalone = isStandalonePwa();
+    // In an installed PWA, Android often never shows a web prompt once Location was
+    // denied (or never granted) at the app-permission level. Surface help if already denied.
+    if (standalone) {
+      void queryGeolocationPermission().then((permission) => {
+        if (permission === 'denied') {
+          setLocationState('denied');
+          setIsLocationHelpOpen(true);
+        }
+      });
+    }
+
+    // Invoke geolocation BEFORE any React state update so Samsung Internet still
+    // associates the request with the active user gesture.
     requestCurrentPosition(
       (position) => {
         applyPosition(position.coords);
@@ -230,9 +251,16 @@ export default function HomePage() {
       },
       (code) => {
         setLocationState(code === 'denied' ? 'denied' : 'error');
+        if (code === 'denied') setIsLocationHelpOpen(true);
       },
     );
+    setLocationState('locating');
   }, [applyPosition, startLocationWatch]);
+
+  useEffect(() => {
+    setIsSamsungBrowser(isSamsungInternet());
+    setIsPwaMode(isStandalonePwa());
+  }, []);
 
   useEffect(() => () => {
     if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
@@ -251,6 +279,27 @@ export default function HomePage() {
       cancelled = true;
     };
   }, [activateLocation]);
+
+  // If the user enables Location in Android settings and returns, retry automatically.
+  useEffect(() => {
+    const maybeRetry = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (locationState !== 'denied' && locationState !== 'error') return;
+      void queryGeolocationPermission().then((permission) => {
+        if (permission === 'granted') activateLocation();
+      });
+    };
+    const unsubscribe = subscribeGeolocationPermissionChange((state) => {
+      if (state === 'granted') activateLocation();
+    });
+    document.addEventListener('visibilitychange', maybeRetry);
+    window.addEventListener('focus', maybeRetry);
+    return () => {
+      unsubscribe();
+      document.removeEventListener('visibilitychange', maybeRetry);
+      window.removeEventListener('focus', maybeRetry);
+    };
+  }, [activateLocation, locationState]);
 
   useEffect(() => {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) {
@@ -552,7 +601,14 @@ export default function HomePage() {
               <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-0.5">
                 <button
                   type="button"
-                  onClick={activateLocation}
+                  onPointerUp={(event) => {
+                    if (event.pointerType === 'mouse' && event.button !== 0) return;
+                    activateLocation();
+                  }}
+                  onClick={(event) => {
+                    // Keyboard / accessibility path; pointerup already handled touch/mouse.
+                    if (event.detail === 0) activateLocation();
+                  }}
                   disabled={locationState === 'locating'}
                   className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-xs font-bold transition ${
                     selectedCity === 'My Location'
@@ -625,16 +681,35 @@ export default function HomePage() {
                 {t('Your location is outside Malawi, so the national map is shown.')}
               </p>
             ) : locationState === 'denied' ? (
-              <p role="status" className="mt-2 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">
-                {t('Location is blocked for this site. In Samsung Internet or Chrome, tap the lock/site icon in the address bar, allow Location, then tap Use my location again.')}
-              </p>
+              <div role="status" className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">
+                <span>
+                  {t(
+                    isPwaMode
+                      ? 'Installed Alipo needs Location allowed in Android app settings (Apps → Alipo → Permissions).'
+                      : isSamsungBrowser
+                        ? 'Samsung Internet blocked location. Enable it in browser and phone settings, then try again.'
+                        : 'Location is blocked for this site. In Samsung Internet or Chrome, tap the lock/site icon in the address bar, allow Location, then tap Use my location again.',
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsLocationHelpOpen(true)}
+                  className="underline underline-offset-2"
+                >
+                  {t('Show how to enable')}
+                </button>
+              </div>
             ) : locationState === 'error' ? (
               <p role="status" className="mt-2 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">
                 {t('Location unavailable. Tap Use my location and allow access when your browser asks.')}
               </p>
             ) : locationState === 'idle' ? (
               <p role="status" className="mt-2 border-l-2 border-forest/40 pl-3 text-xs font-bold text-muted">
-                {t('Tap Use my location to see the closest stations. Your browser will ask for permission.')}
+                {isPwaMode
+                  ? t('In the installed app, tap Use my location. If nothing asks, allow Location under Android Apps → Alipo → Permissions.')
+                  : isSamsungBrowser
+                    ? t('On Samsung Internet, tap Use my location. If nothing asks, turn on Location in the browser Site permissions first.')
+                    : t('Tap Use my location to see the closest stations. Your browser will ask for permission.')}
               </p>
             ) : notificationState === 'denied' ? (
               <p role="status" className="mt-2 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">
@@ -720,6 +795,11 @@ export default function HomePage() {
         }}
         alertsEnabled={stationAlertsEnabled}
         notificationState={notificationState}
+      />
+      <LocationHelpSheet
+        isOpen={isLocationHelpOpen}
+        onClose={() => setIsLocationHelpOpen(false)}
+        onRetry={activateLocation}
       />
     </div>
   );
