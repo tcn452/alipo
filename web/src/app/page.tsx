@@ -351,7 +351,10 @@ export default function HomePage() {
   const selectedStockConfig = selectedStockStatus ? STATION_STOCK_CONFIG[selectedStockStatus] : null;
   return (
     <div className="min-h-screen overflow-x-hidden bg-ivory text-ink">
-      <Header onOpenReport={() => setIsReportModalOpen(true)} />
+      <Header
+        onOpenReport={() => setIsReportModalOpen(true)}
+        onOpenHowItWorks={() => setIsHowItWorksOpen(true)}
+      />
       <main>
         <section className="overflow-hidden bg-forest text-white">
           <div className="mx-auto max-w-[1440px] px-5 py-7 sm:px-8 lg:px-12 lg:py-8">
@@ -364,13 +367,20 @@ export default function HomePage() {
             <p className="mt-3 max-w-2xl text-xs leading-5 text-white/70 sm:text-sm">
               {t('Find fuel, see queue times and share what you know. Built for every drive moving in Malawi.')}
             </p>
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-              <Link href="/stations/candidates" className="inline-flex min-h-9 items-center gap-1.5 border-b border-white/40 text-xs font-bold text-white transition hover:border-[#f5aa54] hover:text-[#f5aa54]">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsHowItWorksOpen(true)}
+                className="inline-flex min-h-10 items-center gap-2 bg-orange px-4 text-xs font-black text-white transition hover:bg-[#d95a1c]"
+              >
+                <CircleHelp className="h-4 w-4" /> {t('How Alipo works')}
+              </button>
+              <Link
+                href="/stations/candidates"
+                className="inline-flex min-h-10 items-center gap-1.5 border border-white/30 px-3 text-xs font-bold text-white/85 transition hover:border-[#f5aa54] hover:text-[#f5aa54]"
+              >
                 <MapPinned className="h-3.5 w-3.5" /> {t('Review proposed station locations')}
               </Link>
-              <button type="button" onClick={() => setIsHowItWorksOpen(true)} className="inline-flex min-h-9 items-center gap-1.5 border-b border-white/40 text-xs font-bold text-white transition hover:border-[#f5aa54] hover:text-[#f5aa54]">
-                <CircleHelp className="h-3.5 w-3.5" /> {t('How Alipo works')}
-              </button>
             </div>
           </div>
         </section>
