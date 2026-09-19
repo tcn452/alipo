@@ -1,21 +1,28 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { LocateFixed, X } from 'lucide-react';
+import { isSamsungInternet, isStandalonePwa } from '@/lib/geolocation';
 import { useLanguage } from '@/lib/i18n';
 
 interface LocationHelpSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onRetry: () => void;
-  isSamsung: boolean;
-  isPwa: boolean;
 }
 
-export function LocationHelpSheet({ isOpen, onClose, onRetry, isSamsung, isPwa }: LocationHelpSheetProps) {
+export function LocationHelpSheet({ isOpen, onClose, onRetry }: LocationHelpSheetProps) {
   const { t } = useLanguage();
   const closeRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
+  const [isPwa, setIsPwa] = useState(false);
+  const [isSamsung, setIsSamsung] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setIsPwa(isStandalonePwa());
+    setIsSamsung(isSamsungInternet());
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
