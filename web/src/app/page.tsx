@@ -9,6 +9,7 @@ import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
 import { SponsorBanner } from '@/components/SponsorBanner';
 import { CITIES, CITY_CENTERS, DEFAULT_CITY, classifyStationBrand, getStationStockStatus, STATION_STOCK_CONFIG } from '@/lib/constants';
+import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition } from '@/lib/geolocation';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { Station } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
@@ -126,7 +127,7 @@ export default function HomePage() {
   const [radiusKm, setRadiusKm] = useState(5);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
-  const [locationState, setLocationState] = useState<'idle' | 'locating' | 'active' | 'outside' | 'error'>('idle');
+  const [locationState, setLocationState] = useState<'idle' | 'locating' | 'active' | 'outside' | 'error' | 'denied'>('idle');
   const [dismissedArrivalStationId, setDismissedArrivalStationId] = useState<string | null>(null);
   const [stationAlertsEnabled, setStationAlertsEnabled] = useState(false);
   const [notificationState, setNotificationState] = useState<'ready' | 'unsupported' | 'denied'>('ready');
@@ -178,45 +179,77 @@ export default function HomePage() {
     }
   }, [radiusKm, selectedCity, userLocation]);
 
-  const activateLocation = useCallback(() => {
-    if (!navigator.geolocation) return setLocationState('error');
-    setLocationState('locating');
-    if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
-    const handlePosition = ({ coords }: GeolocationPosition) => {
-      if (!isInMalawi(coords.latitude, coords.longitude)) {
-        if (locationWatchRef.current !== null) {
-          navigator.geolocation.clearWatch(locationWatchRef.current);
-          locationWatchRef.current = null;
-        }
-        setUserLocation(null);
-        setLocationAccuracy(null);
-        setSelectedCity((current) => current === 'My Location' ? 'All Cities' : current);
-        setLocationState('outside');
-        return;
+  const applyPosition = useCallback((coords: GeolocationCoordinates) => {
+    if (!isInMalawi(coords.latitude, coords.longitude)) {
+      if (locationWatchRef.current !== null) {
+        navigator.geolocation.clearWatch(locationWatchRef.current);
+        locationWatchRef.current = null;
       }
-      const nextLocation: [number, number] = [coords.latitude, coords.longitude];
-      const previousLocation = lastTrackedLocationRef.current;
-      setLocationAccuracy(coords.accuracy);
-      if (!previousLocation || distanceInMetres(nextLocation, { latitude: previousLocation[0], longitude: previousLocation[1] }) >= 250) {
-        lastTrackedLocationRef.current = nextLocation;
-        setUserLocation(nextLocation);
-      }
-      setSelectedCity('My Location');
-      setLocationState('active');
-    };
-    locationWatchRef.current = navigator.geolocation.watchPosition(handlePosition, () => {
-      setLocationState((current) => current === 'active' ? current : 'error');
-    }, { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 });
+      setUserLocation(null);
+      setLocationAccuracy(null);
+      setSelectedCity((current) => (current === 'My Location' ? 'All Cities' : current));
+      setLocationState('outside');
+      return;
+    }
+    const nextLocation: [number, number] = [coords.latitude, coords.longitude];
+    const previousLocation = lastTrackedLocationRef.current;
+    setLocationAccuracy(coords.accuracy);
+    if (!previousLocation || distanceInMetres(nextLocation, { latitude: previousLocation[0], longitude: previousLocation[1] }) >= 250) {
+      lastTrackedLocationRef.current = nextLocation;
+      setUserLocation(nextLocation);
+    }
+    setSelectedCity('My Location');
+    setLocationState('active');
   }, []);
+
+  const startLocationWatch = useCallback(() => {
+    if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+    locationWatchRef.current = watchUserPosition(
+      ({ coords }) => applyPosition(coords),
+      (code) => {
+        if (code === 'denied') {
+          setLocationState((current) => (current === 'active' ? current : 'denied'));
+          return;
+        }
+        setLocationState((current) => (current === 'active' ? current : 'error'));
+      },
+    );
+  }, [applyPosition]);
+
+  const activateLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationState('error');
+      return;
+    }
+    setLocationState('locating');
+    // Call getCurrentPosition synchronously from the tap handler so Samsung Internet shows the prompt.
+    requestCurrentPosition(
+      (position) => {
+        applyPosition(position.coords);
+        startLocationWatch();
+      },
+      (code) => {
+        setLocationState(code === 'denied' ? 'denied' : 'error');
+      },
+    );
+  }, [applyPosition, startLocationWatch]);
 
   useEffect(() => () => {
     if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
   }, []);
 
+  // Only auto-start when permission is already granted. Samsung Internet (and others)
+  // suppress the permission prompt unless location is requested from a user tap.
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+    let cancelled = false;
+    void (async () => {
+      const permission = await queryGeolocationPermission();
+      if (cancelled || permission !== 'granted') return;
       activateLocation();
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [activateLocation]);
 
   useEffect(() => {
@@ -591,9 +624,17 @@ export default function HomePage() {
               <p role="status" className="mt-2 border-l-2 border-orange pl-3 text-xs font-bold text-muted">
                 {t('Your location is outside Malawi, so the national map is shown.')}
               </p>
+            ) : locationState === 'denied' ? (
+              <p role="status" className="mt-2 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">
+                {t('Location is blocked for this site. In Samsung Internet or Chrome, tap the lock/site icon in the address bar, allow Location, then tap Use my location again.')}
+              </p>
             ) : locationState === 'error' ? (
               <p role="status" className="mt-2 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">
-                {t('Location unavailable. Allow location access in your browser and try again.')}
+                {t('Location unavailable. Tap Use my location and allow access when your browser asks.')}
+              </p>
+            ) : locationState === 'idle' ? (
+              <p role="status" className="mt-2 border-l-2 border-forest/40 pl-3 text-xs font-bold text-muted">
+                {t('Tap Use my location to see the closest stations. Your browser will ask for permission.')}
               </p>
             ) : notificationState === 'denied' ? (
               <p role="status" className="mt-2 border-l-2 border-[#c9583c] pl-3 text-xs font-bold text-[#9d321d]">
