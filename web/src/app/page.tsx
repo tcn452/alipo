@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { ArrowRight, Bell, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, MapPinned, Plus, RefreshCw, Search, ThumbsUp, XCircle } from 'lucide-react';
+import { ArrowRight, Bell, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, MapPinned, Plus, RefreshCw, RotateCcw, Search, ThumbsUp, XCircle } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
@@ -285,6 +285,15 @@ export default function HomePage() {
     return true;
   }), [stations, selectedFuel, selectedStatus, searchQuery]);
 
+  const hasActiveFilters = selectedStatus !== 'all' || selectedFuel !== 'all' || Boolean(searchQuery.trim()) || radiusKm !== 5;
+  const resetFilters = useCallback(() => {
+    setSelectedStatus('all');
+    setSelectedFuel('all');
+    setSearchQuery('');
+    setRadiusKm(5);
+    setSelectedStation(null);
+  }, []);
+
   const nearbyStation = useMemo(() => {
     if (locationState !== 'active' || !userLocation || !stations.length) return null;
     const nearest = stations.reduce<{ station: Station; distance: number } | null>((closest, station) => {
@@ -342,7 +351,10 @@ export default function HomePage() {
   const selectedStockConfig = selectedStockStatus ? STATION_STOCK_CONFIG[selectedStockStatus] : null;
   return (
     <div className="min-h-screen overflow-x-hidden bg-ivory text-ink">
-      <Header onOpenReport={() => setIsReportModalOpen(true)} />
+      <Header
+        onOpenReport={() => setIsReportModalOpen(true)}
+        onOpenHowItWorks={() => setIsHowItWorksOpen(true)}
+      />
       <main>
         <section className="overflow-hidden bg-forest text-white">
           <div className="mx-auto max-w-[1440px] px-5 py-7 sm:px-8 lg:px-12 lg:py-8">
@@ -355,21 +367,126 @@ export default function HomePage() {
             <p className="mt-3 max-w-2xl text-xs leading-5 text-white/70 sm:text-sm">
               {t('Find fuel, see queue times and share what you know. Built for every drive moving in Malawi.')}
             </p>
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-              <Link href="/stations/candidates" className="inline-flex min-h-9 items-center gap-1.5 border-b border-white/40 text-xs font-bold text-white transition hover:border-[#f5aa54] hover:text-[#f5aa54]">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsHowItWorksOpen(true)}
+                className="inline-flex min-h-10 items-center gap-2 bg-orange px-4 text-xs font-black text-white transition hover:bg-[#d95a1c]"
+              >
+                <CircleHelp className="h-4 w-4" /> {t('How Alipo works')}
+              </button>
+              <Link
+                href="/stations/candidates"
+                className="inline-flex min-h-10 items-center gap-1.5 border border-white/30 px-3 text-xs font-bold text-white/85 transition hover:border-[#f5aa54] hover:text-[#f5aa54]"
+              >
                 <MapPinned className="h-3.5 w-3.5" /> {t('Review proposed station locations')}
               </Link>
-              <button type="button" onClick={() => setIsHowItWorksOpen(true)} className="inline-flex min-h-9 items-center gap-1.5 border-b border-white/40 text-xs font-bold text-white transition hover:border-[#f5aa54] hover:text-[#f5aa54]">
-                <CircleHelp className="h-3.5 w-3.5" /> {t('How Alipo works')}
-              </button>
             </div>
           </div>
         </section>
 
         <section id="find-fuel" className="sticky top-[72px] z-20 scroll-mt-[72px] border-b border-line bg-ivory/95 backdrop-blur-xl">
           <div className="mx-auto max-w-[1440px] px-4 py-3 sm:px-8 lg:px-12">
-            <div className="flex flex-col gap-2">
-              {/* Row 1: Search + Fuel Selector */}
+            <div className="flex flex-col gap-2.5">
+              {/* Row 1: Availability — most important filter */}
+              <div className="rounded-sm border border-forest/20 bg-[#eff5eb] px-3 py-2.5">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[.14em] text-forest">{t('Fuel availability')}</p>
+                    <p className="mt-0.5 text-[11px] text-muted">{t('Show stations by what fuel reports say right now')}</p>
+                  </div>
+                  {hasActiveFilters ? (
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="inline-flex shrink-0 items-center gap-1 text-[11px] font-black text-forest underline underline-offset-2 hover:text-[#0b5940]"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      {t('Reset filters')}
+                    </button>
+                  ) : null}
+                </div>
+                <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto" role="group" aria-label={t('Fuel availability')}>
+                  {STATUS_FILTERS.map((filter) => (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      onClick={() => setSelectedStatus(filter.id)}
+                      aria-pressed={selectedStatus === filter.id}
+                      className={`inline-flex h-10 shrink-0 items-center gap-2 border px-3.5 text-xs font-black transition ${
+                        selectedStatus === filter.id
+                          ? 'border-forest bg-forest text-white shadow-sm'
+                          : 'border-line bg-white text-ink hover:border-forest'
+                      }`}
+                    >
+                      {filter.id !== 'all' && (
+                        <span
+                          className={`h-2 w-2 rounded-full ${
+                            selectedStatus === filter.id
+                              ? 'bg-white/90'
+                              : filter.id === 'available'
+                              ? 'bg-[#398151]'
+                              : filter.id === 'low'
+                              ? 'bg-[#df972f]'
+                              : filter.id === 'stale'
+                              ? 'bg-[#795548]'
+                              : 'bg-[#c9583c]'
+                          }`}
+                        />
+                      )}
+                      {t(filter.label)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {hasActiveFilters ? (
+                <div className="flex flex-wrap items-center gap-1.5" aria-label={t('Active filters')}>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-muted">{t('Active filters')}:</span>
+                  {selectedStatus !== 'all' ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStatus('all')}
+                      className="inline-flex h-7 items-center gap-1 border border-forest/25 bg-[#dfead7] px-2 text-[11px] font-bold text-forest"
+                    >
+                      {t(STATUS_FILTERS.find((item) => item.id === selectedStatus)?.label || selectedStatus)}
+                      <XCircle className="h-3 w-3" />
+                    </button>
+                  ) : null}
+                  {selectedFuel !== 'all' ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFuel('all')}
+                      className="inline-flex h-7 items-center gap-1 border border-orange/30 bg-[#fef3e3] px-2 text-[11px] font-bold text-[#9a5b12]"
+                    >
+                      {t(selectedFuel === 'petrol' ? 'Petrol' : 'Diesel')}
+                      <XCircle className="h-3 w-3" />
+                    </button>
+                  ) : null}
+                  {searchQuery.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="inline-flex h-7 max-w-[180px] items-center gap-1 truncate border border-line bg-white px-2 text-[11px] font-bold text-ink"
+                    >
+                      “{searchQuery.trim()}”
+                      <XCircle className="h-3 w-3 shrink-0" />
+                    </button>
+                  ) : null}
+                  {radiusKm !== 5 && selectedCity !== 'All Cities' ? (
+                    <button
+                      type="button"
+                      onClick={() => setRadiusKm(5)}
+                      className="inline-flex h-7 items-center gap-1 border border-line bg-white px-2 text-[11px] font-bold text-ink"
+                    >
+                      {radiusKm} km
+                      <XCircle className="h-3 w-3" />
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Row 2: Search + Fuel type */}
               <div className="flex items-center gap-2">
                 <label className="relative min-w-0 flex-1">
                   <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
@@ -398,7 +515,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Row 2: Location + City Chips */}
+              {/* Row 3: Location + City */}
               <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-0.5">
                 <button
                   type="button"
@@ -427,10 +544,10 @@ export default function HomePage() {
                 ))}
               </div>
 
-              {/* Row 3: Radius chips (1-tap range) + Status Filters */}
+              {/* Row 4: Secondary — radius + alerts */}
               <div className="no-scrollbar flex items-center gap-2 overflow-x-auto border-t border-line/60 pt-2">
                 <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-muted">
-                  {t('Radius')}:
+                  {t('Search radius')}:
                 </span>
                 <div className="flex shrink-0 items-center gap-1">
                   {[5, 10, 20, 50].map((radius) => (
@@ -446,38 +563,6 @@ export default function HomePage() {
                       }`}
                     >
                       {radius} km
-                    </button>
-                  ))}
-                </div>
-
-                <span className="h-4 w-px bg-line/80 mx-1 shrink-0" aria-hidden="true" />
-
-                <div className="flex shrink-0 items-center gap-1">
-                  {STATUS_FILTERS.map((filter) => (
-                    <button
-                      key={filter.id}
-                      type="button"
-                      onClick={() => setSelectedStatus(filter.id)}
-                      className={`inline-flex h-7 items-center gap-1.5 border px-2.5 text-[11px] font-bold transition ${
-                        selectedStatus === filter.id
-                          ? 'border-forest bg-[#dfead7] text-forest font-black'
-                          : 'border-line bg-white text-muted hover:border-forest hover:text-ink'
-                      }`}
-                    >
-                      {filter.id !== 'all' && (
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            filter.id === 'available'
-                              ? 'bg-[#398151]'
-                              : filter.id === 'low'
-                              ? 'bg-[#df972f]'
-                              : filter.id === 'stale'
-                              ? 'bg-[#795548]'
-                              : 'bg-[#c9583c]'
-                          }`}
-                        />
-                      )}
-                      {t(filter.label)}
                     </button>
                   ))}
                 </div>
@@ -588,6 +673,12 @@ export default function HomePage() {
         onClose={() => setIsOnboardingOpen(false)}
         onAllowLocation={activateLocation}
         isLocationActive={locationState === 'active'}
+        onEnableAlerts={async () => {
+          if (stationAlertsEnabled) return;
+          await toggleStationAlerts();
+        }}
+        alertsEnabled={stationAlertsEnabled}
+        notificationState={notificationState}
       />
     </div>
   );
