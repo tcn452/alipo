@@ -779,8 +779,6 @@ export default function HomePage() {
         isOpen={isLocationHelpOpen}
         onClose={() => setIsLocationHelpOpen(false)}
         onRetry={activateLocation}
-        isSamsung={isSamsungBrowser}
-        isPwa={isPwaMode}
       />
     </div>
   );
