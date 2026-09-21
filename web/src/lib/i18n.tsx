@@ -150,6 +150,20 @@ const CHICHEWA: Record<string, string> = {
   'Need to report a missing station or name error?': 'Kodi mukufuna kukonza dzina kapena kunena za malo omwe kulibe?',
   'Other report options': 'Zosankha zina za lipoti',
   'Back to fuel report': 'Bwererani ku lipoti la mafuta',
+  'Fuel Available': 'Mafuta alipo',
+  '<5 min': 'mphindi <5',
+  '5-15 min': 'mphindi 5-15',
+  '15-45 min': 'mphindi 15-45',
+  '>45 min': 'mphindi >45',
+  '< 5 min': 'mphindi <5',
+  '< 15 min': 'mphindi <15',
+  '15–45 min': 'mphindi 15–45',
+  '> 45 min': 'mphindi >45',
+  'Privacy Policy': 'Ndondomeko ya Zachinsinsi',
+  'Awaken to a New World. Reliable flights, car rentals & airport transfers.': 'Dzukani ku Dziko Latsopano. Ndege zodalirika, kubwereka magalimoto ndi mayendedwe a pa eyapoti.',
+  'Local Malawian travel specialists': 'Akatswiri a maulendo a ku Malawi',
+  'In Android Settings → Location, turn Location on, then return to Alipo and try again.': 'Mu Android Settings → Location, tsegulani Location. Kenako bwererani ku Alipo ndi kuyesanso.',
+  'Fuel update at {station}': 'Kusintha kwa mafuta pa {station}',
 };
 
 type Values = Record<string, string | number>;
