@@ -25,6 +25,10 @@ export interface Station {
   latest_queue?: QueueEstimate;
   latest_price_petrol?: number;
   latest_price_diesel?: number;
+  petrol_confidence?: number;
+  diesel_confidence?: number;
+  petrol_confirmations?: number;
+  diesel_confirmations?: number;
   last_reported_at?: string;
   created?: string;
   updated?: string;
@@ -55,6 +59,7 @@ export interface StationReportHistoryItem {
   queue_estimate?: QueueEstimate;
   source: ReportSource;
   confirmations: number;
+  confidence?: number;
   created_at: string;
   is_stale: boolean;
 }
