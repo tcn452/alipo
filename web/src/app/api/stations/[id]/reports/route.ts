@@ -11,7 +11,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
   const { data, error } = await supabase
     .from('fuel_reports')
-    .select('id,status,fuel_type,queue_estimate,source,confirmations,created_at')
+    .select('id,status,fuel_type,queue_estimate,source,confirmations,confidence,created_at')
     .eq('station_id', params.id)
     .order('created_at', { ascending: false })
     .limit(10);
