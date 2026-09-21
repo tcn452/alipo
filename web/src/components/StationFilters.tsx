@@ -143,8 +143,8 @@ export function StationFilters({
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto" role="group" aria-label={t('Fuel availability')}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="no-scrollbar flex min-w-0 items-center gap-1.5 overflow-x-auto sm:flex-1" role="group" aria-label={t('Fuel availability')}>
             {STATUS_FILTERS.map((filter) => {
               const selected = selectedStatus === filter.id;
               return (
@@ -176,35 +176,37 @@ export function StationFilters({
             ) : null}
           </div>
 
-          <div className="flex h-11 shrink-0 border border-line bg-white" role="group" aria-label={t('Fuel type filter')}>
-            {(['all', 'petrol', 'diesel'] as const).map((fuel) => (
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="flex h-11 min-w-0 flex-1 border border-line bg-white sm:flex-none" role="group" aria-label={t('Fuel type filter')}>
+              {(['all', 'petrol', 'diesel'] as const).map((fuel) => (
+                <button
+                  key={fuel}
+                  type="button"
+                  onClick={() => onFuelChange(fuel)}
+                  aria-pressed={selectedFuel === fuel}
+                  className={`h-full flex-1 px-2 text-[11px] font-black transition sm:flex-none sm:px-3 sm:text-xs ${
+                    selectedFuel === fuel ? 'bg-orange text-white' : 'text-muted hover:text-forest'
+                  }`}
+                >
+                  {t(fuel === 'all' ? 'All fuel' : fuel === 'petrol' ? 'Petrol' : 'Diesel')}
+                </button>
+              ))}
+            </div>
+
+            {notificationState !== 'unsupported' ? (
               <button
-                key={fuel}
                 type="button"
-                onClick={() => onFuelChange(fuel)}
-                aria-pressed={selectedFuel === fuel}
-                className={`h-full px-2.5 text-[11px] font-black transition sm:px-3 sm:text-xs ${
-                  selectedFuel === fuel ? 'bg-orange text-white' : 'text-muted hover:text-forest'
+                onClick={onToggleAlerts}
+                aria-pressed={stationAlertsEnabled}
+                aria-label={t(stationAlertsEnabled ? 'Alerts on' : 'Station alerts')}
+                className={`grid h-11 w-11 shrink-0 place-items-center border transition ${
+                  stationAlertsEnabled ? 'border-forest bg-forest text-white' : 'border-line bg-white text-muted hover:border-forest hover:text-forest'
                 }`}
               >
-                {t(fuel === 'all' ? 'All fuel' : fuel === 'petrol' ? 'Petrol' : 'Diesel')}
+                <Bell className="h-4 w-4" />
               </button>
-            ))}
+            ) : null}
           </div>
-
-          {notificationState !== 'unsupported' ? (
-            <button
-              type="button"
-              onClick={onToggleAlerts}
-              aria-pressed={stationAlertsEnabled}
-              aria-label={t(stationAlertsEnabled ? 'Alerts on' : 'Station alerts')}
-              className={`grid h-11 w-11 shrink-0 place-items-center border transition ${
-                stationAlertsEnabled ? 'border-forest bg-forest text-white' : 'border-line bg-white text-muted hover:border-forest hover:text-forest'
-              }`}
-            >
-              <Bell className="h-4 w-4" />
-            </button>
-          ) : null}
         </div>
 
         {locationState === 'outside' ? (
