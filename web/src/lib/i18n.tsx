@@ -144,6 +144,7 @@ const CHICHEWA: Record<string, string> = {
   'Active filters': 'Zosefera zogwira ntchito',
   'Close filters': 'Tsekani zosefera',
   'Reset filters': 'Bwezeretsani zosefera',
+  'Clear search': 'Chotsani kusaka',
   'Apply filters': 'Gwiritsani ntchito zosefera',
   'Map view': 'Onani mapu',
   'List view': 'Onani mndandanda',
