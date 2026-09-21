@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { ArrowRight, Bell, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, MapPinned, Plus, RefreshCw, RotateCcw, Search, ThumbsUp, XCircle } from 'lucide-react';
+import { ArrowRight, Bell, ChevronDown, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, MapPinned, Plus, RefreshCw, RotateCcw, Search, ThumbsUp, XCircle } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
@@ -30,6 +30,27 @@ const STATION_ALERT_DWELL_MS = 60_000;
 const STATION_ALERT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const STATION_ALERTS_KEY = 'alipo-station-alerts-enabled';
 const STATION_ALERT_HISTORY_KEY = 'alipo-station-alert-history';
+const PWA_LOCATION_KEY = 'alipo-pwa-last-location';
+const PWA_LOCATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+interface CachedPwaLocation {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  savedAt: number;
+}
+
+function clearCachedPwaLocation() {
+  try { localStorage.removeItem(PWA_LOCATION_KEY); } catch { /* Storage may be unavailable. */ }
+}
+
+function saveCachedPwaLocation(location: CachedPwaLocation) {
+  try { localStorage.setItem(PWA_LOCATION_KEY, JSON.stringify(location)); } catch { /* Storage may be unavailable. */ }
+}
+
+function readCachedPwaLocation(): CachedPwaLocation | null {
+  try { return JSON.parse(localStorage.getItem(PWA_LOCATION_KEY) || 'null') as CachedPwaLocation | null; } catch { return null; }
+}
 
 function isInMalawi(latitude: number, longitude: number) {
   return latitude >= -17.2 && latitude <= -9.2 && longitude >= 32.65 && longitude <= 35.95;
@@ -199,6 +220,7 @@ export default function HomePage() {
       setLocationAccuracy(null);
       setSelectedCity((current) => (current === 'My Location' ? 'All Cities' : current));
       setLocationState('outside');
+      if (isStandalonePwa()) clearCachedPwaLocation();
       return;
     }
     const nextLocation: [number, number] = [coords.latitude, coords.longitude];
@@ -210,6 +232,15 @@ export default function HomePage() {
     }
     setSelectedCity('My Location');
     setLocationState('active');
+    if (isStandalonePwa()) {
+      const cachedLocation: CachedPwaLocation = {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: coords.accuracy,
+        savedAt: Date.now(),
+      };
+      saveCachedPwaLocation(cachedLocation);
+    }
   }, []);
 
   const startLocationWatch = useCallback(() => {
@@ -255,16 +286,46 @@ export default function HomePage() {
         startLocationWatch();
       },
       (code) => {
-        setLocationState(code === 'denied' ? 'denied' : 'error');
-        if (code === 'denied') setIsLocationHelpOpen(true);
+        if (code === 'denied') {
+          clearCachedPwaLocation();
+          setUserLocation(null);
+          setLocationAccuracy(null);
+          setLocationState('denied');
+          setIsLocationHelpOpen(true);
+          return;
+        }
+        setLocationState((current) => (current === 'active' ? current : 'error'));
       },
     );
-    setLocationState('locating');
+    setLocationState((current) => (current === 'active' ? current : 'locating'));
   }, [applyPosition, startLocationWatch]);
 
   useEffect(() => {
+    const standalone = isStandalonePwa();
     setIsSamsungBrowser(isSamsungInternet());
-    setIsPwaMode(isStandalonePwa());
+    setIsPwaMode(standalone);
+    if (!standalone) return;
+    try {
+      const cached = readCachedPwaLocation();
+      const valid = cached
+        && Number.isFinite(cached.latitude)
+        && Number.isFinite(cached.longitude)
+        && Number.isFinite(cached.accuracy)
+        && Date.now() - cached.savedAt <= PWA_LOCATION_MAX_AGE_MS
+        && isInMalawi(cached.latitude, cached.longitude);
+      if (!valid || !cached) {
+        clearCachedPwaLocation();
+        return;
+      }
+      const restored: [number, number] = [cached.latitude, cached.longitude];
+      lastTrackedLocationRef.current = restored;
+      setUserLocation(restored);
+      setLocationAccuracy(cached.accuracy);
+      setSelectedCity('My Location');
+      setLocationState('active');
+    } catch {
+      clearCachedPwaLocation();
+    }
   }, []);
 
   useEffect(() => () => {
@@ -277,7 +338,16 @@ export default function HomePage() {
     let cancelled = false;
     void (async () => {
       const permission = await queryGeolocationPermission();
-      if (cancelled || permission !== 'granted') return;
+      if (cancelled) return;
+      if (permission === 'denied' && isStandalonePwa()) {
+        clearCachedPwaLocation();
+        setUserLocation(null);
+        setLocationAccuracy(null);
+        setSelectedCity((current) => current === 'My Location' ? 'All Cities' : current);
+        setLocationState('denied');
+        return;
+      }
+      if (permission !== 'granted') return;
       activateLocation();
     })();
     return () => {
@@ -397,7 +467,7 @@ export default function HomePage() {
     return score(a) - score(b);
   }), [stations, selectedFuel, selectedStatus, searchQuery]);
 
-  const hasActiveFilters = selectedStatus !== 'all' || selectedFuel !== 'all' || Boolean(searchQuery.trim()) || radiusKm !== 5;
+  const hasActiveFilters = selectedStatus !== 'all' || selectedFuel !== 'all' || Boolean(searchQuery.trim()) || (radiusKm !== 5 && selectedCity !== 'All Cities');
   const resetFilters = useCallback(() => {
     setSelectedStatus('all');
     setSelectedFuel('all');
@@ -627,82 +697,73 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Row 3: Location + City */}
-              <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-0.5">
-                <button
-                  type="button"
-                  onPointerUp={(event) => {
-                    if (event.pointerType === 'mouse' && event.button !== 0) return;
-                    activateLocation();
-                  }}
-                  onClick={(event) => {
-                    // Keyboard / accessibility path; pointerup already handled touch/mouse.
-                    if (event.detail === 0) activateLocation();
-                  }}
-                  disabled={locationState === 'locating'}
-                  className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-xs font-bold transition ${
-                    selectedCity === 'My Location'
-                      ? 'bg-orange text-white'
-                      : 'border border-orange/40 bg-white text-forest hover:border-orange'
-                  } disabled:opacity-60`}
-                >
-                  <LocateFixed className={`h-3.5 w-3.5 ${locationState === 'locating' ? 'animate-pulse' : ''}`} />
-                  {t(locationState === 'locating' ? 'Finding you…' : locationState === 'active' ? 'Near me' : 'Use my location')}
-                </button>
-
-                {CITIES.map((city) => (
+              {/* Row 3: Search area — location, city and radius */}
+              <div className="flex min-w-0 items-center gap-2 border-t border-line/60 pt-2">
+                <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-0.5" role="group" aria-label={t('Search area')}>
                   <button
-                    key={city}
-                    onClick={() => { setSelectedStation(null); setSelectedCity(city); }}
-                    className={`h-9 shrink-0 whitespace-nowrap px-3 text-xs font-bold transition ${
-                      selectedCity === city ? 'bg-forest text-white' : 'border border-line bg-white text-ink hover:border-forest'
-                    }`}
+                    type="button"
+                    onPointerUp={(event) => {
+                      if (event.pointerType === 'mouse' && event.button !== 0) return;
+                      activateLocation();
+                    }}
+                    onClick={(event) => {
+                      // Keyboard / accessibility path; pointerup already handled touch/mouse.
+                      if (event.detail === 0) activateLocation();
+                    }}
+                    disabled={locationState === 'locating'}
+                    className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-xs font-bold transition ${
+                      selectedCity === 'My Location'
+                        ? 'bg-orange text-white'
+                        : 'border border-orange/40 bg-white text-forest hover:border-orange'
+                    } disabled:opacity-60`}
                   >
-                    {city === 'All Cities' ? t('All Malawi') : city}
+                    <LocateFixed className={`h-3.5 w-3.5 ${locationState === 'locating' ? 'animate-pulse' : ''}`} />
+                    {t(locationState === 'locating' ? 'Finding you…' : locationState === 'active' ? 'Near me' : 'Use my location')}
                   </button>
-                ))}
-              </div>
 
-              {/* Row 4: Secondary — radius + alerts */}
-              <div className="no-scrollbar flex items-center gap-2 overflow-x-auto border-t border-line/60 pt-2">
-                <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-muted">
-                  {t('Search radius')}:
-                </span>
-                <div className="flex shrink-0 items-center gap-1">
-                  {[5, 10, 20, 50].map((radius) => (
+                  {CITIES.map((city) => (
                     <button
-                      key={radius}
+                      key={city}
                       type="button"
-                      disabled={selectedCity === 'All Cities'}
-                      onClick={() => { setSelectedStation(null); setRadiusKm(radius); }}
-                      className={`h-7 px-2 text-[11px] font-bold transition border disabled:opacity-35 ${
-                        radiusKm === radius && selectedCity !== 'All Cities'
-                          ? 'border-forest bg-forest text-white font-black'
-                          : 'border-line bg-white text-muted hover:border-forest hover:text-ink'
+                      onClick={() => { setSelectedStation(null); setSelectedCity(city); }}
+                      aria-pressed={selectedCity === city}
+                      className={`h-9 shrink-0 whitespace-nowrap px-3 text-xs font-bold transition ${
+                        selectedCity === city ? 'bg-forest text-white' : 'border border-line bg-white text-ink hover:border-forest'
                       }`}
                     >
-                      {radius} km
+                      {city === 'All Cities' ? t('All Malawi') : city}
                     </button>
                   ))}
                 </div>
 
-                {notificationState !== 'unsupported' && (
-                  <>
-                    <span className="h-4 w-px bg-line/80 mx-1 shrink-0" aria-hidden="true" />
-                    <button
-                      type="button"
-                      onClick={() => { void toggleStationAlerts(); }}
-                      className={`inline-flex h-7 shrink-0 items-center gap-1 border px-2 text-[11px] font-bold transition ${
-                        stationAlertsEnabled
-                          ? 'border-forest bg-forest text-white'
-                          : 'border-line bg-white text-muted hover:border-forest'
-                      }`}
-                    >
-                      <Bell className="h-3 w-3" />
-                      {t(stationAlertsEnabled ? 'Alerts on' : 'Station alerts')}
-                    </button>
-                  </>
-                )}
+                <label className="relative shrink-0">
+                  <span className="sr-only">{t('Search radius')}</span>
+                  <select
+                    value={radiusKm}
+                    disabled={selectedCity === 'All Cities'}
+                    onChange={(event) => { setSelectedStation(null); setRadiusKm(Number(event.target.value)); }}
+                    className="h-9 appearance-none border border-line bg-white py-0 pl-2.5 pr-7 text-[11px] font-black text-forest outline-none transition focus:border-forest disabled:bg-[#eee9dd] disabled:text-muted disabled:opacity-60"
+                  >
+                    {[5, 10, 20, 50].map((radius) => <option key={radius} value={radius}>{radius} km</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted" />
+                </label>
+
+                {notificationState !== 'unsupported' ? (
+                  <button
+                    type="button"
+                    onClick={() => { void toggleStationAlerts(); }}
+                    aria-pressed={stationAlertsEnabled}
+                    aria-label={t(stationAlertsEnabled ? 'Alerts on' : 'Station alerts')}
+                    className={`grid h-9 w-9 shrink-0 place-items-center border transition ${
+                      stationAlertsEnabled
+                        ? 'border-forest bg-forest text-white'
+                        : 'border-line bg-white text-muted hover:border-forest hover:text-forest'
+                    }`}
+                  >
+                    <Bell className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
               </div>
             </div>
 
