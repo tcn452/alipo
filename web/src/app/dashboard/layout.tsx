@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Fuel, LayoutDashboard, Truck, Compass, FileText, ArrowLeft, LogOut, MapPinned } from 'lucide-react';
+import { Fuel, LayoutDashboard, Truck, Compass, FileText, ArrowLeft, LogOut, MapPinned, BarChart3 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function DashboardLayout({
@@ -18,6 +18,7 @@ export default function DashboardLayout({
     { label: 'Vehicles & Drivers', href: '/dashboard/vehicles', icon: Truck },
     { label: 'Smart Dispatch', href: '/dashboard/dispatch', icon: Compass },
     { label: 'Fuel Reports & Logs', href: '/dashboard/reports', icon: FileText },
+    { label: 'Community Analytics', href: '/dashboard/analytics', icon: BarChart3 },
     { label: 'Station Candidates', href: '/stations/candidates', icon: MapPinned },
   ];
 
