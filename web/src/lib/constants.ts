@@ -90,7 +90,7 @@ export const QUEUE_LABELS: Record<string, { label: string; color: string; durati
 
 export const STATUS_CONFIG: Record<string, { label: string; color: string; badge: string; dot: string }> = {
   available: {
-    label: 'Fuel Available',
+    label: 'Fuel available',
     color: 'text-emerald-600 bg-emerald-50 border-emerald-300',
     badge: 'bg-emerald-500 text-white',
     dot: 'bg-emerald-500'
