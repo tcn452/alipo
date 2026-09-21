@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowUpRight, ChevronDown, Clock3, History, MapPin, MapPinned, RefreshCw } from 'lucide-react';
+import { ArrowUpRight, BadgeCheck, Bell, BellOff, Check, ChevronDown, Clock3, MapPin, MapPinned, Navigation, RefreshCw } from 'lucide-react';
 import { classifyStationBrand, getBrandColor, getStationStockStatus, QUEUE_LABELS, STATION_STOCK_CONFIG, STATUS_CONFIG } from '@/lib/constants';
 import { Station, StationReportHistoryItem } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
 
-interface StationCardProps { station: Station; stationNumber: number; onReportClick: (station: Station) => void; onViewMap: (station: Station) => void; onSelectStation?: (station: Station) => void; isSelected?: boolean; }
+interface StationCardProps { station: Station; stationNumber: number; onReportClick: (station: Station) => void; onViewMap: (station: Station) => void; onSelectStation?: (station: Station) => void; onDataChanged?: () => void; isSelected?: boolean; }
 
-export function StationCard({ station, stationNumber, onReportClick, onViewMap, onSelectStation, isSelected }: StationCardProps) {
+export function StationCard({ station, stationNumber, onReportClick, onViewMap, onSelectStation, onDataChanged, isSelected }: StationCardProps) {
   const { t } = useLanguage();
   const stockStatus = getStationStockStatus(station);
   const status = stockStatus ? STATION_STOCK_CONFIG[stockStatus] : null;
@@ -20,6 +20,37 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
   const [history, setHistory] = useState<StationReportHistoryItem[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(false);
+  const [confirmingFuel, setConfirmingFuel] = useState<'petrol' | 'diesel' | null>(null);
+  const [actionMessage, setActionMessage] = useState('');
+  const [watched, setWatched] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try { return (JSON.parse(localStorage.getItem('alipo-watched-stations') || '[]') as string[]).includes(station.id); } catch { return false; }
+  });
+
+  const confirmFuel = async (fuel: 'petrol' | 'diesel') => {
+    setConfirmingFuel(fuel); setActionMessage('');
+    try {
+      let token = localStorage.getItem('alipo-device-token');
+      if (!token) { token = crypto.randomUUID(); localStorage.setItem('alipo-device-token', token); }
+      const response = await fetch(`/api/stations/${encodeURIComponent(station.id)}/confirm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fuel_type: fuel, device_token: token }) });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'Unable to confirm this report.');
+      setActionMessage(t('Report confirmed. Thank you.'));
+      onDataChanged?.();
+    } catch (error) { setActionMessage(error instanceof Error ? error.message : t('Unable to confirm this report.')); }
+    finally { setConfirmingFuel(null); }
+  };
+
+  const toggleWatch = async () => {
+    const next = !watched;
+    let watchedIds: string[] = [];
+    try { watchedIds = JSON.parse(localStorage.getItem('alipo-watched-stations') || '[]') as string[]; } catch { watchedIds = []; }
+    watchedIds = next ? Array.from(new Set([...watchedIds, station.id])) : watchedIds.filter((id) => id !== station.id);
+    localStorage.setItem('alipo-watched-stations', JSON.stringify(watchedIds));
+    setWatched(next);
+    if (next && 'Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+    setActionMessage(t(next ? 'Watching this station for fuel updates.' : 'Station watch removed.'));
+  };
 
   const toggleHistory = async () => {
     const opening = !historyOpen;
@@ -42,12 +73,12 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
   return (
     <article onClick={() => onSelectStation?.(station)} className={`group min-w-0 overflow-hidden border bg-white p-4 transition ${isSelected ? 'border-forest shadow-[inset_4px_0_0_#06452f]' : 'border-line hover:border-[#97a491]'}`}>
       <div className="flex min-w-0 items-start justify-between gap-3">
-        <div className="flex min-w-0 gap-3"><span aria-label={`Station ${stationNumber}`} className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-black text-white shadow-sm" style={{ backgroundColor: brandColor }}>{stationNumber}</span><div className="min-w-0"><div className="mb-2 text-[10px] font-black uppercase tracking-[.14em] text-muted">{displayBrand}</div><h3 className="truncate text-base font-black tracking-[-.02em] text-ink">{station.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {station.district}, {station.city}</p></div></div>
+        <div className="flex min-w-0 gap-3"><span aria-label={`Station ${stationNumber}`} className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-black text-white shadow-sm" style={{ backgroundColor: brandColor }}>{stationNumber}</span><div className="min-w-0"><div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[.14em] text-muted"><span>{displayBrand}</span>{stationNumber === 1 && station.latest_status === 'available' ? <span className="bg-[#e5eddc] px-1.5 py-0.5 text-[8px] text-forest">{t('Best option')}</span> : null}</div><h3 className="truncate text-base font-black tracking-[-.02em] text-ink">{station.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {station.district}, {station.city}</p></div></div>
         <div className="flex shrink-0 flex-col items-end gap-1">{status ? <span className={`border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${status.color}`}>{t(status.label)}</span> : null}{station.is_stale ? <span className="bg-[#f3ece8] px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#795548]">{t('Stale')}</span> : null}</div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 border-y border-line py-3 text-xs">
-        <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Fuel availability')}</span><div className="mt-1.5 space-y-1">{(['petrol', 'diesel'] as const).map((fuel) => { const fuelStatus = station[`${fuel}_status`] || 'unknown'; const fuelIsStale = station[`${fuel}_is_stale`]; const config = STATUS_CONFIG[fuelStatus] || STATUS_CONFIG.unknown; return <div key={fuel} className="flex items-center justify-between gap-2"><strong>{t(fuel === 'petrol' ? 'Petrol' : 'Diesel')}</strong><span className="flex items-center gap-1"><span className={`border px-1.5 py-0.5 text-[9px] font-black uppercase ${config.color}`}>{t(config.label)}</span>{fuelIsStale ? <span className="bg-[#f3ece8] px-1.5 py-0.5 text-[9px] font-black uppercase text-[#795548]">{t('Stale')}</span> : null}</span></div>; })}</div></div>
+        <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Fuel availability')}</span><div className="mt-1.5 space-y-2">{(['petrol', 'diesel'] as const).map((fuel) => { const fuelStatus = station[`${fuel}_status`] || 'unknown'; const fuelIsStale = station[`${fuel}_is_stale`]; const config = STATUS_CONFIG[fuelStatus] || STATUS_CONFIG.unknown; const confidence = station[`${fuel}_confidence`] || 0; const confirmations = station[`${fuel}_confirmations`] || 0; return <div key={fuel}><div className="flex items-center justify-between gap-2"><strong>{t(fuel === 'petrol' ? 'Petrol' : 'Diesel')}</strong><span className="flex items-center gap-1"><span className={`border px-1.5 py-0.5 text-[9px] font-black uppercase ${config.color}`}>{t(config.label)}</span>{fuelIsStale ? <span className="bg-[#f3ece8] px-1.5 py-0.5 text-[9px] font-black uppercase text-[#795548]">{t('Stale')}</span> : null}</span></div><div className="mt-0.5 flex items-center justify-end text-[9px] text-muted"><span className="inline-flex items-center gap-0.5"><BadgeCheck className="h-3 w-3" />{confidence >= .8 ? t('High confidence') : confidence >= .6 ? t('Medium confidence') : t('Unconfirmed')} · {confirmations}</span></div>{fuelStatus !== 'unknown' && !fuelIsStale ? <button type="button" disabled={confirmingFuel !== null} onClick={(event) => { event.stopPropagation(); void confirmFuel(fuel); }} className="mt-1 inline-flex min-h-7 items-center gap-1 text-[10px] font-black text-forest disabled:opacity-50"><Check className="h-3 w-3" />{t(confirmingFuel === fuel ? 'Confirming…' : 'Still correct')}</button> : null}</div>; })}</div></div>
         <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Queue')}</span><strong className="mt-0.5 flex items-center gap-1"><Clock3 className="h-3 w-3" /> {queue?.duration ? t(queue.duration) : t('Unknown')}</strong></div>
       </div>
 
@@ -82,6 +113,11 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
           </button>
         </div>
       </div>
+      <div className="mt-2 flex flex-wrap gap-2 border-t border-line/70 pt-2">
+        <button type="button" onClick={(event) => { event.stopPropagation(); void toggleWatch(); }} className={`inline-flex min-h-9 items-center gap-1.5 border px-2.5 text-[10px] font-black ${watched ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line text-muted'}`}>{watched ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}{t(watched ? 'Stop watching' : 'Watch station')}</button>
+        <a onClick={(event) => event.stopPropagation()} href={`https://www.google.com/maps/dir/?api=1&destination=${station.latitude},${station.longitude}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 border border-line px-2.5 text-[10px] font-black text-forest"><Navigation className="h-3.5 w-3.5" />{t('Directions')}</a>
+      </div>
+      {actionMessage ? <p role="status" className="mt-2 text-[10px] font-bold text-forest">{actionMessage}</p> : null}
 
       {historyOpen ? (
         <div onClick={(event) => event.stopPropagation()} className="mt-4 border-t border-line pt-3">

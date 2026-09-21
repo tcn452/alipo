@@ -92,6 +92,10 @@ function stationFromSupabase(row: Record<string, unknown>): Station | null {
     petrol_reported_at: petrol.reportedAt,
     diesel_reported_at: diesel.reportedAt,
     latest_queue: row.latest_queue as Station['latest_queue'],
+    petrol_confidence: typeof row.petrol_confidence === 'number' ? row.petrol_confidence : Number(row.petrol_confidence || 0),
+    diesel_confidence: typeof row.diesel_confidence === 'number' ? row.diesel_confidence : Number(row.diesel_confidence || 0),
+    petrol_confirmations: Number(row.petrol_confirmations || 0),
+    diesel_confirmations: Number(row.diesel_confirmations || 0),
     last_reported_at: lastReportedAt,
     updated: row.updated_at ? String(row.updated_at) : undefined,
     distance_km: typeof row.distance_km === 'number' ? row.distance_km : undefined,
@@ -140,6 +144,7 @@ export default function HomePage() {
   const locationWatchRef = useRef<number | null>(null);
   const lastTrackedLocationRef = useRef<[number, number] | null>(null);
   const lastLocationRequestAtRef = useRef(0);
+  const watchedStatusRef = useRef<Record<string, string>>({});
 
   const showMap = useCallback(() => {
     setSelectedStation(null);
@@ -345,6 +350,22 @@ export default function HomePage() {
   }, [fetchStations]);
 
   useEffect(() => {
+    let watchedIds: string[] = [];
+    try { watchedIds = JSON.parse(localStorage.getItem('alipo-watched-stations') || '[]') as string[]; } catch { watchedIds = []; }
+    const next: Record<string, string> = {};
+    for (const station of stations) {
+      if (!watchedIds.includes(station.id)) continue;
+      const status = `${station.petrol_status || 'unknown'}:${station.diesel_status || 'unknown'}`;
+      next[station.id] = status;
+      const previous = watchedStatusRef.current[station.id];
+      if (previous && previous !== status && status.includes('available') && 'Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+        void navigator.serviceWorker.ready.then((registration) => registration.showNotification(t(`Fuel update at ${station.name}`), { body: t('Fuel is now reported available. Open Alipo to check the latest queue.'), icon: '/icon-192.png', badge: '/favicon.png', tag: `fuel-available-${station.id}`, data: { stationId: station.id } }));
+      }
+    }
+    watchedStatusRef.current = next;
+  }, [stations, t]);
+
+  useEffect(() => {
     try {
       const onboarded = localStorage.getItem('alipo-onboarded');
       if (!onboarded) {
@@ -365,6 +386,15 @@ export default function HomePage() {
       return [station.name, station.district, station.brand].some((value) => value.toLowerCase().includes(query));
     }
     return true;
+  }).sort((a, b) => {
+    const score = (station: Station) => {
+      const status = selectedFuel === 'petrol' ? station.petrol_status : selectedFuel === 'diesel' ? station.diesel_status : station.latest_status;
+      const confidence = selectedFuel === 'petrol' ? station.petrol_confidence : selectedFuel === 'diesel' ? station.diesel_confidence : Math.max(station.petrol_confidence || 0, station.diesel_confidence || 0);
+      const queuePenalty = { none: 0, short: 5, medium: 20, long: 45 }[station.latest_queue || 'medium'];
+      const statusPenalty = status === 'available' ? 0 : status === 'low' ? 35 : 100;
+      return (station.distance_km || 0) * 2 + queuePenalty + statusPenalty + (1 - (confidence || 0)) * 20;
+    };
+    return score(a) - score(b);
   }), [stations, selectedFuel, selectedStatus, searchQuery]);
 
   const hasActiveFilters = selectedStatus !== 'all' || selectedFuel !== 'all' || Boolean(searchQuery.trim()) || radiusKm !== 5;
