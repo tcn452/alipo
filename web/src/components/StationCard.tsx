@@ -82,40 +82,60 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
         <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Queue')}</span><strong className="mt-0.5 flex items-center gap-1"><Clock3 className="h-3 w-3" /> {queue?.duration ? t(queue.duration) : t('Unknown')}</strong></div>
       </div>
 
-      <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <span className="min-w-0 text-[11px] text-muted">
+      <div className="mt-3">
+        <p className="text-[11px] text-muted">
           {t('Updated')} <TimeAgo date={station.last_reported_at || station.updated} />
-        </span>
-        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
+        </p>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <a
+            onClick={(event) => event.stopPropagation()}
+            href={`https://www.google.com/maps/dir/?api=1&destination=${station.latitude},${station.longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center justify-center gap-2 bg-forest px-3 text-xs font-black text-white transition hover:bg-[#0b5940] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"
+          >
+            <Navigation className="h-4 w-4 text-[#f5aa54]" />
+            {t('Directions')}
+          </a>
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); onReportClick(station); }}
+            className="inline-flex min-h-11 items-center justify-center gap-2 border-2 border-forest bg-white px-3 text-xs font-black text-forest transition hover:bg-[#e5eddc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"
+          >
+            <span>{t('Update fuel')}</span>
+            <ArrowUpRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-2 grid grid-cols-3 divide-x divide-line border border-line bg-[#f8f5ee]">
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); void toggleWatch(); }}
+            aria-pressed={watched}
+            className={`inline-flex min-h-10 items-center justify-center gap-1.5 px-2 text-[10px] font-black transition hover:bg-white focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest ${watched ? 'bg-[#e5eddc] text-forest' : 'text-muted'}`}
+          >
+            {watched ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
+            {t(watched ? 'Stop watching' : 'Watch')}
+          </button>
           <button
             type="button"
             onClick={(event) => { event.stopPropagation(); onViewMap(station); }}
-            className="inline-flex min-h-11 items-center gap-1 px-2 text-xs font-black text-forest transition hover:text-orange"
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 px-2 text-[10px] font-black text-muted transition hover:bg-white hover:text-forest focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest"
           >
-            <MapPinned className="h-3.5 w-3.5" /> {t('View on map')}
+            <MapPinned className="h-3.5 w-3.5" />
+            {t('Map')}
           </button>
           <button
             type="button"
             aria-expanded={historyOpen}
             onClick={(event) => { event.stopPropagation(); void toggleHistory(); }}
-            className="inline-flex min-h-11 items-center gap-1 px-2 text-xs font-bold text-muted hover:text-forest"
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 px-2 text-[10px] font-black text-muted transition hover:bg-white hover:text-forest focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest"
           >
-            {t(historyOpen ? 'Hide details' : 'More details')}
+            {t(historyOpen ? 'Hide' : 'Details')}
             <ChevronDown className={`h-3.5 w-3.5 transition ${historyOpen ? 'rotate-180' : ''}`} />
           </button>
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); onReportClick(station); }}
-            className="inline-flex min-h-10 items-center gap-1.5 bg-forest px-3 py-1.5 text-xs font-black text-white shadow-xs transition hover:bg-[#0b5940]"
-          >
-            <span>{t('Update fuel')}</span>
-            <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-          </button>
         </div>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-2 border-t border-line/70 pt-2">
-        <button type="button" onClick={(event) => { event.stopPropagation(); void toggleWatch(); }} className={`inline-flex min-h-9 items-center gap-1.5 border px-2.5 text-[10px] font-black ${watched ? 'border-forest bg-[#e5eddc] text-forest' : 'border-line text-muted'}`}>{watched ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}{t(watched ? 'Stop watching' : 'Watch station')}</button>
-        <a onClick={(event) => event.stopPropagation()} href={`https://www.google.com/maps/dir/?api=1&destination=${station.latitude},${station.longitude}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 border border-line px-2.5 text-[10px] font-black text-forest"><Navigation className="h-3.5 w-3.5" />{t('Directions')}</a>
       </div>
       {actionMessage ? <p role="status" className="mt-2 text-[10px] font-bold text-forest">{actionMessage}</p> : null}
 
