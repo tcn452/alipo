@@ -67,10 +67,10 @@ export default function LoginPage() {
           <span className="text-3xl font-black tracking-tight">Alipo</span>
         </Link>
         <h2 className="mt-4 text-2xl font-bold tracking-tight text-white">
-          Fleet Management & B2B Portal
+          Alipo Operations
         </h2>
         <p className="mt-1 text-sm text-emerald-300">
-          Phone-first OTP login for fleet dispatchers, admins and attendants
+          Secure access for authorised Alipo operations staff
         </p>
       </div>
 
@@ -148,7 +148,7 @@ export default function LoginPage() {
                 disabled={isLoading}
                 className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 font-bold text-sm shadow-md transition-all active:scale-95 disabled:opacity-50"
               >
-                <span>{isLoading ? 'Verifying...' : 'Sign In to Fleet Portal'}</span>
+                <span>{isLoading ? 'Verifying...' : 'Sign In to Alipo Operations'}</span>
                 <CheckCircle2 className="w-4 h-4" />
               </button>
             </form>

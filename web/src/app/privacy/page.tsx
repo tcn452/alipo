@@ -61,6 +61,9 @@ export default function PrivacyPolicyPage() {
                 <li>
                   <strong className="text-ink">Community Reports & Phone Numbers:</strong> When submitting fuel updates, name suggestions, or flags, phone numbers are converted to irreversible cryptographic hashes to prevent spam and duplicate voting while preserving your anonymity.
                 </li>
+                <li>
+                  <strong className="text-ink">Anonymous Usage Analytics:</strong> We store a random identifier on your device and hash it before recording daily usage. This helps us measure unique users, visits, and whether Alipo is used as an installed PWA or in a browser. It is not linked to your name, phone number, or precise location.
+                </li>
               </ul>
             </section>
 
@@ -102,7 +105,7 @@ export default function PrivacyPolicyPage() {
             <section>
               <h2 className="text-base font-black text-ink">4. Data Security</h2>
               <p className="mt-2 text-muted">
-                All database records are hosted on secure, encrypted database clusters with strict row-level security (RLS) policies. We do not sell or rent personal user details to third parties.
+                All database records are hosted on secure, encrypted database clusters with strict row-level security (RLS) policies. Access to usage reports is restricted to authorised operations staff. We do not sell or rent personal user details to third parties.
               </p>
             </section>
 

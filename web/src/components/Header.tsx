@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { CircleHelp, Download, Languages, LayoutDashboard, MapPinned, Plus, Radio, Share, X } from 'lucide-react';
+import { CircleHelp, Download, Languages, MapPinned, Plus, Radio, Share, X } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
 import { usePwaInstall } from '@/lib/usePwaInstall';
 
@@ -83,9 +83,6 @@ export function Header({ onOpenReport, onOpenHowItWorks }: HeaderProps) {
           </Link>
           <Link href="/stations/add" className="inline-flex items-center gap-2 text-xs font-bold text-ink transition hover:text-forest">
             <Plus className="h-4 w-4" /> Add station
-          </Link>
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-xs font-bold text-ink transition hover:text-forest">
-            <LayoutDashboard className="h-4 w-4" /> {t('Fleet portal')}
           </Link>
         </nav>
 
