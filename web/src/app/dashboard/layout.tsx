@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Fuel, LayoutDashboard, Truck, Compass, FileText, ArrowLeft, LogOut, MapPinned, BarChart3 } from 'lucide-react';
+import { Fuel, ArrowLeft, LogOut, MapPinned, BarChart3 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function DashboardLayout({
@@ -14,10 +14,6 @@ export default function DashboardLayout({
   const pathname = usePathname();
 
   const navItems = [
-    { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Vehicles & Drivers', href: '/dashboard/vehicles', icon: Truck },
-    { label: 'Smart Dispatch', href: '/dashboard/dispatch', icon: Compass },
-    { label: 'Fuel Reports & Logs', href: '/dashboard/reports', icon: FileText },
     { label: 'Community Analytics', href: '/dashboard/analytics', icon: BarChart3 },
     { label: 'Station Candidates', href: '/stations/candidates', icon: MapPinned },
   ];
@@ -34,8 +30,8 @@ export default function DashboardLayout({
                 <Fuel className="w-5 h-5" />
               </div>
               <div>
-                <span className="font-black text-lg tracking-tight text-white">Alipo Fleet</span>
-                <span className="block text-[10px] text-emerald-400 font-semibold uppercase">B2B Management</span>
+                <span className="font-black text-lg tracking-tight text-white">Alipo Operations</span>
+                <span className="block text-[10px] text-emerald-400 font-semibold uppercase">Community Network</span>
               </div>
             </Link>
           </div>
