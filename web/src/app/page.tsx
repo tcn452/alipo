@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { ArrowRight, Bell, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, MapPinned, Plus, RefreshCw, RotateCcw, Search, ThumbsUp, XCircle } from 'lucide-react';
+import { ArrowRight, Bell, CircleHelp, Info, List, LocateFixed, Map as MapIcon, MapPin, MapPinned, Navigation, Plus, RefreshCw, RotateCcw, Search, ThumbsUp, XCircle } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
@@ -20,9 +20,21 @@ import { OnboardingModal } from '@/components/OnboardingModal';
 import { LocationHelpSheet } from '@/components/LocationHelpSheet';
 import { PublicUsageSnapshot } from '@/components/PublicUsageSnapshot';
 
+function StationMapLoading() {
+  const { t } = useLanguage();
+  return (
+    <div className="grid min-h-[540px] place-items-center bg-[#e7eadf] text-forest">
+      <div className="text-center">
+        <RefreshCw className="mx-auto mb-3 h-6 w-6 animate-spin" />
+        <p className="text-sm font-bold">{t('Loading the live fuel map')}</p>
+      </div>
+    </div>
+  );
+}
+
 const StationMap = dynamic(() => import('@/components/map/StationMap'), {
   ssr: false,
-  loading: () => <div className="grid min-h-[540px] place-items-center bg-[#e7eadf] text-forest"><div className="text-center"><RefreshCw className="mx-auto mb-3 h-6 w-6 animate-spin" /><p className="text-sm font-bold">Loading the live fuel map</p></div></div>,
+  loading: () => <StationMapLoading />,
 });
 
 const STATUS_FILTERS = [{ id: 'all', label: 'All reports' }, { id: 'available', label: 'Available' }, { id: 'low', label: 'Low supply' }, { id: 'out', label: 'No fuel' }, { id: 'stale', label: 'Stale' }];
@@ -360,7 +372,7 @@ export default function HomePage() {
       next[station.id] = status;
       const previous = watchedStatusRef.current[station.id];
       if (previous && previous !== status && status.includes('available') && 'Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
-        void navigator.serviceWorker.ready.then((registration) => registration.showNotification(t(`Fuel update at ${station.name}`), { body: t('Fuel is now reported available. Open Alipo to check the latest queue.'), icon: '/icon-192.png', badge: '/favicon.png', tag: `fuel-available-${station.id}`, data: { stationId: station.id } }));
+        void navigator.serviceWorker.ready.then((registration) => registration.showNotification(t('Fuel update at {station}', { station: station.name }), { body: t('Fuel is now reported available. Open Alipo to check the latest queue.'), icon: '/icon-192.png', badge: '/favicon.png', tag: `fuel-available-${station.id}`, data: { stationId: station.id } }));
       }
     }
     watchedStatusRef.current = next;
@@ -772,7 +784,25 @@ export default function HomePage() {
             {selectedStation && <div className="absolute bottom-5 left-4 right-4 z-[400] border border-black/10 bg-white p-5 shadow-[0_24px_70px_rgba(5,48,33,.22)] sm:left-6 sm:right-auto sm:w-[410px]">
               <div className="flex items-start justify-between gap-4"><div><div className="text-[11px] font-black uppercase tracking-[.14em] text-forest">{classifyStationBrand(selectedStation.name, selectedStation.brand)}</div><h3 className="mt-2 text-xl font-black tracking-[-.03em]">{selectedStation.name}</h3><p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3.5 w-3.5" /> {selectedStation.district}, {selectedStation.city}</p></div><div className="flex flex-col items-end gap-1">{selectedStockConfig ? <span className={`whitespace-nowrap border px-3 py-1.5 text-xs font-black ${selectedStockConfig.color}`}>{t(selectedStockConfig.label)}</span> : null}{selectedStation.is_stale ? <span className="bg-[#f3ece8] px-2 py-1 text-[10px] font-black uppercase text-[#795548]">{t('Stale')}</span> : null}</div></div>
               <div className="mt-4 grid grid-cols-2 border-y border-line py-3 text-xs"><div><span className="block text-muted">{t('Fuel types')}</span><strong className="capitalize">{selectedStation.fuel_types.map((fuel) => t(fuel === 'petrol' ? 'Petrol' : 'Diesel')).join(' & ')}</strong></div><div><span className="block text-muted">{t('Updated')}</span><strong><TimeAgo date={selectedStation.last_reported_at || selectedStation.updated} /></strong></div></div>
-              <a href="#report-fuel" onClick={() => setIsReportModalOpen(true)} className="mt-4 inline-flex w-full items-center justify-between bg-forest px-4 py-3 text-sm font-black text-white transition hover:bg-[#0b5940]">{t('Report an update')} <ArrowRight className="h-4 w-4" /></a>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${selectedStation.latitude},${selectedStation.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 bg-forest px-3 text-xs font-black text-white transition hover:bg-[#0b5940] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"
+                >
+                  <Navigation className="h-4 w-4 text-[#f5aa54]" />
+                  {t('Directions')}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setIsReportModalOpen(true)}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 border-2 border-forest bg-white px-3 text-xs font-black text-forest transition hover:bg-[#e5eddc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"
+                >
+                  <span>{t('Update fuel')}</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
             </div>}
           </div>
         </section>
@@ -808,7 +838,7 @@ export default function HomePage() {
 
         <PublicUsageSnapshot />
       </main>
-      <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo</strong> — Find fuel. Share updates. Keep Malawi moving.</p><p><Link href="/privacy" className="underline decoration-white/30 underline-offset-4 transition hover:text-white">Privacy Policy</Link> · <a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · Created by <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
+      <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo</strong> — {t('Find fuel. Share updates. Keep Malawi moving.')}</p><p><Link href="/privacy" className="underline decoration-white/30 underline-offset-4 transition hover:text-white">{t('Privacy Policy')}</Link> · <a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · {t('Created by')} <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
       
 
 

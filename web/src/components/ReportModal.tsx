@@ -132,7 +132,7 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
                     }`}
                   >
                     <strong className="block text-xs">{t(queue.label)}</strong>
-                    <span className="text-[9px] text-muted">{queue.time}</span>
+                    <span className="text-[9px] text-muted">{t(queue.time)}</span>
                   </button>
                 ))}
               </div>
