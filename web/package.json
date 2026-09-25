@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "test:filters": "node --experimental-strip-types --test tests/station-filters.test.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
