@@ -457,19 +457,28 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!stationAlertsEnabled || !nearbyStation || !('serviceWorker' in navigator)) return;
-    const { station } = nearbyStation;
+    const { station, distance } = nearbyStation;
     const timer = window.setTimeout(async () => {
       let history: Record<string, number> = {};
       try { history = JSON.parse(localStorage.getItem(STATION_ALERT_HISTORY_KEY) || '{}') as Record<string, number>; } catch { history = {}; }
       if (Date.now() - (history[station.id] || 0) < STATION_ALERT_COOLDOWN_MS) return;
       const registration = await navigator.serviceWorker.ready;
-      await registration.showNotification(t('Are you at {station}?', { station: station.name }), {
-        body: t('When safely parked, help other drivers with a quick fuel report.'),
+      const metres = Math.max(1, Math.round(distance));
+      const place = station.city && station.city !== 'Malawi' ? `${station.name} · ${station.city}` : station.name;
+      await registration.showNotification(t('Hey — looks like you stopped at {station}', { station: station.name }), {
+        body: t("You're about {metres} m from {place}. If you're parked safely, tap to share whether petrol or diesel is available — it helps the next driver.", {
+          metres,
+          place,
+        }),
         icon: '/icon-192.png',
         badge: '/favicon.png',
         tag: `station-arrival-${station.id}`,
         data: { stationId: station.id },
-      });
+        actions: [
+          { action: 'report', title: t("I'm here — report") },
+          { action: 'dismiss', title: t('Not me') },
+        ],
+      } as NotificationOptions);
       localStorage.setItem(STATION_ALERT_HISTORY_KEY, JSON.stringify({ ...history, [station.id]: Date.now() }));
     }, STATION_ALERT_DWELL_MS);
     return () => window.clearTimeout(timer);
@@ -553,14 +562,47 @@ export default function HomePage() {
           onReset={resetFilters}
         />
 
-        {nearbyStation && nearbyStation.station.id !== dismissedArrivalStationId ? <section aria-live="polite" className="border-b border-[#bbd2ae] bg-[#e1edd9]">
-          <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-5 py-3 sm:px-8 lg:px-12">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest text-white"><MapPin className="h-5 w-5" /></div>
-            <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-[.14em] text-forest">{t('You may be at this station')}</p><p className="truncate text-sm font-black text-ink">{nearbyStation.station.name} · {Math.round(nearbyStation.distance)} m {t('away')}</p></div>
-            <button type="button" onClick={() => { setSelectedStation(nearbyStation.station); setIsReportModalOpen(true); }} className="shrink-0 bg-forest px-4 py-2.5 text-xs font-black text-white">{t('Quick report')}</button>
-            <button type="button" aria-label={t('Dismiss station suggestion')} onClick={() => setDismissedArrivalStationId(nearbyStation.station.id)} className="grid h-9 w-9 shrink-0 place-items-center text-forest"><XCircle className="h-5 w-5" /></button>
-          </div>
-        </section> : null}
+        {nearbyStation && nearbyStation.station.id !== dismissedArrivalStationId ? (
+          <section aria-live="polite" className="border-b border-[#bbd2ae] bg-[#e1edd9]">
+            <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-5 py-3 sm:px-8 lg:px-12">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest text-white">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-[.14em] text-forest">
+                  {t("Looks like you're here")}
+                </p>
+                <p className="truncate text-sm font-black text-ink">
+                  {t('Hey — {station} is about {metres} m away', {
+                    station: nearbyStation.station.name,
+                    metres: Math.round(nearbyStation.distance),
+                  })}
+                </p>
+                <p className="mt-0.5 truncate text-[11px] font-bold text-muted">
+                  {t("If you're parked, share what you see so the next driver isn't guessing.")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStation(nearbyStation.station);
+                  setIsReportModalOpen(true);
+                }}
+                className="shrink-0 bg-forest px-4 py-2.5 text-xs font-black text-white"
+              >
+                {t('Share what I see')}
+              </button>
+              <button
+                type="button"
+                aria-label={t('Dismiss station suggestion')}
+                onClick={() => setDismissedArrivalStationId(nearbyStation.station.id)}
+                className="grid h-9 w-9 shrink-0 place-items-center text-forest"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         <section className="mx-auto grid max-w-[1440px] grid-cols-[minmax(0,1fr)] lg:min-h-[720px] lg:grid-cols-[440px_minmax(0,1fr)]">
           <aside className={`${activeTab === 'map' ? 'hidden lg:block' : 'block'} min-w-0 max-w-full border-r border-line bg-[#f8f5ee] px-4 py-6 sm:px-8 lg:px-7`}>
