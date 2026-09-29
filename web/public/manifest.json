@@ -2,7 +2,7 @@
   "name": "Alipo — Malawi Fuel Tracker",
   "short_name": "Alipo",
   "description": "Crowdsourced & Verified Fuel Availability Network for Malawi",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f7f3e9",

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Truck, Fuel, Compass, AlertTriangle, TrendingUp, CheckCircle, Clock, MapPin, ArrowRight } from 'lucide-react';
+import { Truck, Fuel, Compass, AlertTriangle, TrendingUp, CheckCircle, Clock, MapPin, ArrowRight, Smartphone } from 'lucide-react';
 
 export default function DashboardOverviewPage() {
   const [fleetMetrics] = useState({
@@ -13,6 +13,33 @@ export default function DashboardOverviewPage() {
     activeAnomalies: 1,
     savedHoursEstimate: '38h'
   });
+
+  const [pwaStats, setPwaStats] = useState<{
+    total: number;
+    byPlatform: { android: number; ios: number; desktop: number };
+    loading: boolean;
+  }>({
+    total: 0,
+    byPlatform: { android: 0, ios: 0, desktop: 0 },
+    loading: true,
+  });
+
+  useEffect(() => {
+    fetch('/api/pwa-install')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && typeof data.total === 'number') {
+          setPwaStats({
+            total: data.total,
+            byPlatform: data.byPlatform || { android: 0, ios: 0, desktop: 0 },
+            loading: false,
+          });
+        }
+      })
+      .catch(() => {
+        setPwaStats((prev) => ({ ...prev, loading: false }));
+      });
+  }, []);
 
   const recentRefuels = [
     { id: '1', plate: 'BT 4421', driver: 'Chifundo Banda', station: 'TotalEnergies City Centre', litres: 65, cost: 164450, time: '25m ago', status: 'verified' },
@@ -40,7 +67,36 @@ export default function DashboardOverviewPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        {/* PWA Installs Metric */}
+        <div className="bg-gradient-to-br from-emerald-50 to-white p-5 rounded-2xl border border-emerald-200 shadow-sm relative overflow-hidden">
+          <div className="flex items-center justify-between text-emerald-800 text-xs font-semibold mb-2">
+            <span>PWA INSTALLS</span>
+            <Smartphone className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div className="text-2xl font-black text-gray-900 flex items-baseline gap-1.5">
+            {pwaStats.loading ? (
+              <span className="text-gray-400 text-sm animate-pulse">Loading...</span>
+            ) : (
+              <>
+                <span>{pwaStats.total}</span>
+                <span className="text-xs text-gray-500 font-normal">devices</span>
+              </>
+            )}
+          </div>
+          <div className="mt-2 text-[10px] text-gray-600 flex items-center flex-wrap gap-1.5">
+            <span className="inline-flex items-center text-emerald-700 font-semibold bg-emerald-100/70 px-1.5 py-0.5 rounded">
+              🤖 {pwaStats.byPlatform.android} Android
+            </span>
+            <span className="inline-flex items-center text-blue-700 font-semibold bg-blue-100/70 px-1.5 py-0.5 rounded">
+              🍎 {pwaStats.byPlatform.ios} iOS
+            </span>
+            <span className="text-gray-400 font-medium">
+              💻 {pwaStats.byPlatform.desktop}
+            </span>
+          </div>
+        </div>
+
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between text-gray-500 text-xs font-semibold mb-2">
             <span>ACTIVE FLEET</span>

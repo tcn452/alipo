@@ -258,6 +258,13 @@ const CHICHEWA: Record<string, string> = {
   'Enter passcode to preview live app:': 'Lembani mawu achinsinsi kuti muone pulogalamu:',
   'Unlock preview': 'Tsegulani yowonera',
   'Incorrect passcode': 'Mawu achinsinsi olakwika',
+  'Launch notification active': 'Chidziwitso chokhazikitsa chakonzeka',
+  'Notify me at launch': 'Ndidziwitseni mukakhazikitsa',
+  'Get a phone notification the exact second Alipo launches on October 1st.': 'Landirani uthenga pa foni nthawi yeniyeni yomwe Alipo ikuyamba pa 1st October.',
+  'Launch notification enabled! You will be alerted on October 1st.': 'Chidziwitso chakhazikitsidwa! Mudzalandira uthenga pa 1st October.',
+  'Allow notifications in your browser settings to receive the launch alert.': 'Lolani zidziwitso mu msakatuli mwanu kuti mulandire uthenga wokonzeka.',
+  'Launch alert ready': 'Chidziwitso chokhazikitsa chakonzeka',
+  'You will receive a notification the moment Alipo goes live on Oct 1st.': 'Mudzalandira chidziwitso nthawi yomwe Alipo iyamba pa 1st October.',
 };
 
 type Values = Record<string, string | number>;

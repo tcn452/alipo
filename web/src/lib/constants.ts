@@ -2,6 +2,8 @@ export const LAUNCH_DATE_ISO = process.env.NEXT_PUBLIC_LAUNCH_DATE || '2026-10-0
 export const LAUNCH_DATE = new Date(LAUNCH_DATE_ISO);
 export const LAUNCH_BYPASS_STORAGE_KEY = 'alipo-launch-bypass';
 export const LAUNCH_PASSCODE = 'alipo2026';
+export const LAUNCH_NOTIFICATION_KEY = 'alipo-launch-alert-enabled';
+export const LAUNCH_NOTIFIED_KEY = 'alipo-launch-notified';
 
 export const CITIES = [
   'All Cities',

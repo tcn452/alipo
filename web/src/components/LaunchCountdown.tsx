@@ -19,10 +19,11 @@ import {
   Key, 
   Lock, 
   ChevronRight,
-  Info
+  Info,
+  Bell
 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
-import { LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY, LAUNCH_PASSCODE } from '@/lib/constants';
+import { LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY, LAUNCH_PASSCODE, LAUNCH_NOTIFICATION_KEY } from '@/lib/constants';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -51,14 +52,52 @@ export function LaunchCountdown({ onUnlock }: LaunchCountdownProps) {
   const [isAndroid, setIsAndroid] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [activeGuideTab, setActiveGuideTab] = useState<'android' | 'ios' | 'desktop'>('android');
+  const [launchAlertEnabled, setLaunchAlertEnabled] = useState(false);
+  const [alertSubscribing, setAlertSubscribing] = useState(false);
   
   // Team bypass state
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [passcodeError, setPasscodeError] = useState(false);
 
+  const enableLaunchAlert = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    setAlertSubscribing(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        localStorage.setItem(LAUNCH_NOTIFICATION_KEY, 'true');
+        setLaunchAlertEnabled(true);
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({
+            type: 'SCHEDULE_LAUNCH_ALERT',
+            lang: language,
+          });
+        }
+      }
+    } finally {
+      setAlertSubscribing(false);
+    }
+  };
+
+  const recordInstall = (platform?: string) => {
+    if (typeof window === 'undefined') return;
+    const p = platform || (isIos ? 'ios' : isAndroid ? 'android' : 'desktop');
+    void fetch('/api/pwa-install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform: p }),
+    }).catch(() => undefined);
+  };
+
   useEffect(() => {
     setMounted(true);
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setLaunchAlertEnabled(
+        Notification.permission === 'granted' && localStorage.getItem(LAUNCH_NOTIFICATION_KEY) === 'true'
+      );
+    }
 
     const ua = navigator.userAgent.toLowerCase();
     const ios = /iphone|ipad|ipod/.test(ua);
@@ -84,6 +123,8 @@ export function LaunchCountdown({ onUnlock }: LaunchCountdownProps) {
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
+      recordInstall();
+      void enableLaunchAlert();
     };
     window.addEventListener('appinstalled', handleAppInstalled);
 
@@ -111,12 +152,16 @@ export function LaunchCountdown({ onUnlock }: LaunchCountdownProps) {
   }, []);
 
   const handleInstallClick = async () => {
+    // Prompt for launch alert alongside PWA installation
+    void enableLaunchAlert();
+
     if (deferredPrompt) {
       try {
         await deferredPrompt.prompt();
         const choice = await deferredPrompt.userChoice;
         if (choice.outcome === 'accepted') {
           setIsInstalled(true);
+          recordInstall();
         }
         setDeferredPrompt(null);
       } catch {
@@ -356,6 +401,34 @@ export function LaunchCountdown({ onUnlock }: LaunchCountdownProps) {
               <span>{t('Be ready for launch day. Installs directly to your home screen with zero data wastage.')}</span>
             </div>
           </div>
+
+          {/* Launch Alert Indicator / Opt-In */}
+          {launchAlertEnabled ? (
+            <div className="mt-4 flex items-center gap-3 bg-[#06452f] border border-[#f5aa54]/40 px-4 py-3 rounded-xl text-xs text-[#f5aa54]">
+              <Bell className="h-4 w-4 shrink-0 text-[#f5aa54]" />
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-white">{t('Launch alert ready')}</p>
+                <p className="text-[11px] text-white/70 truncate sm:whitespace-normal">{t('You will receive a notification the moment Alipo goes live on Oct 1st.')}</p>
+              </div>
+              <CheckCircle2 className="h-4 w-4 text-[#f5aa54] shrink-0" />
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/5 border border-white/10 px-4 py-3 rounded-xl text-xs">
+              <div className="flex items-center gap-2.5">
+                <Bell className="h-4 w-4 text-[#f5aa54] shrink-0" />
+                <span className="text-white/80">{t('Get a phone notification the exact second Alipo launches on October 1st.')}</span>
+              </div>
+              <button
+                type="button"
+                disabled={alertSubscribing}
+                onClick={enableLaunchAlert}
+                className="inline-flex shrink-0 items-center justify-center gap-1.5 bg-[#06452f] hover:bg-[#085a3d] border border-[#f5aa54] text-[#f5aa54] px-3.5 py-1.5 rounded-lg text-xs font-black transition disabled:opacity-50"
+              >
+                <Bell className="h-3.5 w-3.5" />
+                <span>{t('Notify me at launch')}</span>
+              </button>
+            </div>
+          )}
         </section>
 
         {/* WhatsApp Share CTA */}

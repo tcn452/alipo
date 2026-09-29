@@ -1,5 +1,42 @@
-const CACHE_NAME = 'alipo-shell-v3';
+const CACHE_NAME = 'alipo-shell-v4';
 const APP_SHELL = ['/', '/manifest.json', '/favicon.png', '/icon-192.png', '/icon-512.png'];
+const LAUNCH_TIMESTAMP = 1790805600000; // 2026-10-01T00:00:00+02:00 (CAT)
+
+let launchTimer = null;
+
+function showLaunchNotification(lang) {
+  const isNy = lang === 'ny';
+  const title = isNy ? '⛽ Alipo tsopano ili ndi MOYO!' : '⛽ Alipo is officially LIVE!';
+  const body = isNy
+    ? 'Kutsata mafuta a petulo ndi dizilo ku Malawi konse kwayamba tsopano. Dinani kuti muwone malo a mafuta.'
+    : 'Real-time petrol & diesel tracking across Malawi is now active. Tap to find fuel.';
+
+  return self.registration.showNotification(title, {
+    body,
+    icon: '/icon-192.png',
+    badge: '/favicon.png',
+    tag: 'alipo-official-launch',
+    data: { url: '/' },
+    requireInteraction: true,
+  });
+}
+
+function scheduleLaunchAlert(lang) {
+  const delay = LAUNCH_TIMESTAMP - Date.now();
+  if (launchTimer) clearTimeout(launchTimer);
+
+  if (delay <= 0) {
+    void showLaunchNotification(lang);
+    return;
+  }
+
+  // Max 32-bit int ms (~24.8 days)
+  if (delay < 2147483647) {
+    launchTimer = setTimeout(() => {
+      void showLaunchNotification(lang);
+    }, delay);
+  }
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -11,6 +48,12 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
   );
   self.clients.claim();
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SCHEDULE_LAUNCH_ALERT') {
+    scheduleLaunchAlert(event.data?.lang || 'en');
+  }
 });
 
 self.addEventListener('fetch', (event) => {
@@ -38,17 +81,19 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const stationId = event.notification.data?.stationId;
-  const reportUrl = stationId ? `/?reportStation=${encodeURIComponent(stationId)}` : '/';
+  const targetUrl = event.notification.data?.url || (stationId ? `/?reportStation=${encodeURIComponent(stationId)}` : '/');
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
       const client = clients[0];
       if (client) {
         await client.focus();
-        client.postMessage({ type: 'OPEN_STATION_REPORT', stationId });
+        if (stationId) {
+          client.postMessage({ type: 'OPEN_STATION_REPORT', stationId });
+        }
         return;
       }
-      await self.clients.openWindow(reportUrl);
+      await self.clients.openWindow(targetUrl);
     })
   );
 });

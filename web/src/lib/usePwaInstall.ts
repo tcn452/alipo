@@ -29,13 +29,28 @@ function isStandaloneDisplay(): boolean {
   );
 }
 
+function recordPwaInstall(platform?: string) {
+  if (typeof window === 'undefined') return;
+  const alreadyLogged = localStorage.getItem('alipo-pwa-install-logged');
+  if (alreadyLogged) return;
+  localStorage.setItem('alipo-pwa-install-logged', 'true');
+
+  const p = platform || (sharedIsIos ? 'ios' : /android/i.test(navigator.userAgent) ? 'android' : 'desktop');
+  void fetch('/api/pwa-install', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ platform: p }),
+  }).catch(() => undefined);
+}
+
 function ensureInstallListener() {
   if (sharedListening || typeof window === 'undefined') return;
   sharedListening = true;
   sharedIsStandalone = isStandaloneDisplay();
   sharedIsIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  if (sharedIsStandalone) {
+  if (sharedIsStandalone || new URLSearchParams(window.location.search).get('source') === 'pwa') {
+    recordPwaInstall();
     notify();
     return;
   }
@@ -49,6 +64,7 @@ function ensureInstallListener() {
   window.addEventListener('appinstalled', () => {
     sharedInstallEvent = null;
     sharedIsStandalone = true;
+    recordPwaInstall();
     notify();
   });
 }
