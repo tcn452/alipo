@@ -205,7 +205,7 @@ const CHICHEWA: Record<string, string> = {
   'In Android Settings → Location, turn Location on, then return to Alipo and try again.': 'Mu Android Settings → Location, tsegulani Location. Kenako bwererani ku Alipo ndi kuyesanso.',
   'Fuel update at {station}': 'Kusintha kwa mafuta pa {station}',
   'Launching October 1st, 2026': 'Tikukhazikitsa pa 1st October 2026',
-  'Official Launch': 'Kukhazikitsa Mwamwambo',
+  'Official Launch': 'Kukhazikitsa',
   'Malawi Fuel Availability Network': 'Netiweki ya Mafuta ya ku Malawi',
   'Countdown to Launch': 'Kuwerengera Kotsala Kuti Tikhazikitse',
   'Days': 'Masiku',
