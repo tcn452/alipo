@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
 import { LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY, LAUNCH_PASSCODE, LAUNCH_NOTIFICATION_KEY } from '@/lib/constants';
+import { trackPwaInstall, trackLaunchAlertPermission, trackShare } from '@/lib/gtag';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -65,6 +66,7 @@ export function LaunchCountdown({ onUnlock }: LaunchCountdownProps) {
     setAlertSubscribing(true);
     try {
       const permission = await Notification.requestPermission();
+      trackLaunchAlertPermission(permission as 'granted' | 'denied' | 'default');
       if (permission === 'granted') {
         localStorage.setItem(LAUNCH_NOTIFICATION_KEY, 'true');
         setLaunchAlertEnabled(true);
@@ -83,6 +85,11 @@ export function LaunchCountdown({ onUnlock }: LaunchCountdownProps) {
   const recordInstall = (platform?: string) => {
     if (typeof window === 'undefined') return;
     const p = platform || (isIos ? 'ios' : isAndroid ? 'android' : 'desktop');
+    
+    // Google Analytics (gtag) event
+    trackPwaInstall(p, 'prompt');
+
+    // Supabase database record
     void fetch('/api/pwa-install', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -437,6 +444,7 @@ export function LaunchCountdown({ onUnlock }: LaunchCountdownProps) {
             href={getWhatsAppShareUrl()}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackShare('whatsapp', 'alipo.co.mw')}
             className="w-full inline-flex items-center justify-center gap-2.5 bg-[#25D366] hover:bg-[#20ba59] text-white px-5 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md"
           >
             <Share2 className="h-4 w-4" />

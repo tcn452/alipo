@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { trackPwaInstall } from '@/lib/gtag';
 
 export interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -29,13 +30,21 @@ function isStandaloneDisplay(): boolean {
   );
 }
 
-function recordPwaInstall(platform?: string) {
+function recordPwaInstall(
+  platform?: string,
+  trigger: 'prompt' | 'appinstalled' | 'standalone_open' = 'appinstalled'
+) {
   if (typeof window === 'undefined') return;
   const alreadyLogged = localStorage.getItem('alipo-pwa-install-logged');
   if (alreadyLogged) return;
   localStorage.setItem('alipo-pwa-install-logged', 'true');
 
   const p = platform || (sharedIsIos ? 'ios' : /android/i.test(navigator.userAgent) ? 'android' : 'desktop');
+  
+  // Track in Google Analytics (gtag)
+  trackPwaInstall(p, trigger);
+
+  // Track in Supabase database
   void fetch('/api/pwa-install', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -50,7 +59,7 @@ function ensureInstallListener() {
   sharedIsIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
   if (sharedIsStandalone || new URLSearchParams(window.location.search).get('source') === 'pwa') {
-    recordPwaInstall();
+    recordPwaInstall(undefined, 'standalone_open');
     notify();
     return;
   }
@@ -64,7 +73,7 @@ function ensureInstallListener() {
   window.addEventListener('appinstalled', () => {
     sharedInstallEvent = null;
     sharedIsStandalone = true;
-    recordPwaInstall();
+    recordPwaInstall(undefined, 'appinstalled');
     notify();
   });
 }
