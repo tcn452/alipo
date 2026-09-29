@@ -140,8 +140,8 @@ export function LaunchCountdown({ onUnlock }: LaunchCountdownProps) {
 
   const getWhatsAppShareUrl = () => {
     const text = language === 'ny'
-      ? 'Alipo ikukhazikitsidwa pa 1st October! Ikani pulogalamuyi pa foni yanu tsopano kuti muzidziwa za mafuta ku Malawi: https://alipo.net'
-      : 'Alipo is launching on October 1st! Download the app to your phone now to track real-time petrol & diesel across Malawi: https://alipo.net';
+      ? 'Alipo ikukhazikitsidwa pa 1st October! Ikani pulogalamuyi pa foni yanu tsopano kuti muzidziwa za mafuta ku Malawi: https://alipo.co.mw'
+      : 'Alipo is launching on October 1st! Download the app to your phone now to track real-time petrol & diesel across Malawi: https://alipo.co.mw';
     return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
   };
 
