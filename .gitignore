@@ -26,6 +26,9 @@ pb/pb_data/
 .env.test.local
 .env.production.local
 
+# Superdesign local credentials
+.superdesign/config.json
+
 # Debug logs
 npm-debug.log*
 yarn-debug.log*

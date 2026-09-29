@@ -8,7 +8,7 @@ import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
 import { SponsorBanner } from '@/components/SponsorBanner';
-import { CITY_CENTERS, DEFAULT_CITY, classifyStationBrand, getStationStockStatus, STATION_STOCK_CONFIG } from '@/lib/constants';
+import { CITY_CENTERS, DEFAULT_CITY, classifyStationBrand, getStationStockStatus, STATION_STOCK_CONFIG, LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY } from '@/lib/constants';
 import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition, isStandalonePwa, subscribeGeolocationPermissionChange } from '@/lib/geolocation';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { Station } from '@/types/alipo';
@@ -20,6 +20,7 @@ import { OnboardingModal } from '@/components/OnboardingModal';
 import { LocationHelpSheet } from '@/components/LocationHelpSheet';
 import { StationFilters } from '@/components/StationFilters';
 import { matchesStationFilters, type ReportFilters } from '@/lib/station-filters';
+import { LaunchCountdown } from '@/components/LaunchCountdown';
 
 function StationMapLoading() {
   const { t } = useLanguage();
@@ -152,6 +153,9 @@ export default function HomePage() {
   const [dismissedArrivalStationId, setDismissedArrivalStationId] = useState<string | null>(null);
   const [stationAlertsEnabled, setStationAlertsEnabled] = useState(false);
   const [notificationState, setNotificationState] = useState<'ready' | 'unsupported' | 'denied'>('ready');
+  const [isBypassed, setIsBypassed] = useState<boolean>(false);
+  const [isPrelaunch, setIsPrelaunch] = useState<boolean>(true);
+  const [launchChecked, setLaunchChecked] = useState<boolean>(false);
   const stationRequestRef = useRef(0);
   const mapSectionRef = useRef<HTMLDivElement>(null);
   const locationWatchRef = useRef<number | null>(null);
@@ -159,6 +163,25 @@ export default function HomePage() {
   const lastTrackedLocationRef = useRef<[number, number] | null>(null);
   const lastLocationRequestAtRef = useRef(0);
   const watchedStatusRef = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('preview') === 'alipo' || params.get('unlock') === '1' || params.get('bypass') === 'true') {
+      localStorage.setItem(LAUNCH_BYPASS_STORAGE_KEY, 'true');
+      setIsBypassed(true);
+    } else {
+      setIsBypassed(localStorage.getItem(LAUNCH_BYPASS_STORAGE_KEY) === 'true');
+    }
+
+    const checkLaunch = () => {
+      setIsPrelaunch(Date.now() < LAUNCH_DATE.getTime());
+    };
+    checkLaunch();
+    setLaunchChecked(true);
+
+    const interval = setInterval(checkLaunch, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const showMap = useCallback(() => {
     setSelectedStation(null);
@@ -496,8 +519,37 @@ export default function HomePage() {
   const mapCenter = selectedCity === 'My Location' && userLocation ? userLocation : (CITY_CENTERS[selectedCity] || CITY_CENTERS['All Cities']);
   const selectedStockStatus = selectedStation ? getStationStockStatus(selectedStation) : null;
   const selectedStockConfig = selectedStockStatus ? STATION_STOCK_CONFIG[selectedStockStatus] : null;
+
+  // Block public access during pre-launch (before Oct 1st, 2026), unless bypassed for preview
+  if ((!launchChecked || (isPrelaunch && !isBypassed)) && Date.now() < LAUNCH_DATE.getTime()) {
+    if (typeof window === 'undefined' || localStorage.getItem(LAUNCH_BYPASS_STORAGE_KEY) !== 'true') {
+      return <LaunchCountdown onUnlock={() => setIsBypassed(true)} />;
+    }
+  }
+
   return (
     <div className="min-h-screen overflow-x-clip bg-ivory text-ink">
+      {isPrelaunch && isBypassed && (
+        <aside className="sticky top-0 z-50 flex items-center justify-between border-b border-[#032419]/20 bg-[#f5aa54] px-4 py-2 text-xs font-black text-[#032419] shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#032419] opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#032419]" />
+            </span>
+            <span>{t('Preview mode active — launching Oct 1st')}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem(LAUNCH_BYPASS_STORAGE_KEY);
+              setIsBypassed(false);
+            }}
+            className="rounded bg-[#032419] px-3 py-1 text-[11px] font-black text-white transition hover:bg-black"
+          >
+            {t('Exit preview & lock')}
+          </button>
+        </aside>
+      )}
       <Header
         onOpenReport={() => setIsReportModalOpen(true)}
         onOpenHowItWorks={() => setIsHowItWorksOpen(true)}

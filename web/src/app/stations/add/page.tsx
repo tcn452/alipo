@@ -6,6 +6,7 @@ import { CheckCircle2, LocateFixed, MapPin } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { queryGeolocationPermission, requestCurrentPosition } from '@/lib/geolocation';
 import { useLanguage } from '@/lib/i18n';
+import { LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY } from '@/lib/constants';
 
 type CapturedLocation = { latitude: number; longitude: number; accuracy: number };
 
@@ -40,6 +41,10 @@ export default function AddStationPage() {
   };
 
   useEffect(() => {
+    if (Date.now() < LAUNCH_DATE.getTime() && localStorage.getItem(LAUNCH_BYPASS_STORAGE_KEY) !== 'true') {
+      window.location.replace('/');
+      return;
+    }
     let cancelled = false;
     void (async () => {
       const permission = await queryGeolocationPermission();
@@ -49,8 +54,6 @@ export default function AddStationPage() {
     return () => {
       cancelled = true;
     };
-    // Intentionally run once on mount when permission is already granted.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
