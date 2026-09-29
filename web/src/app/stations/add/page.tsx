@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { CheckCircle2, LocateFixed, MapPin } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { useLanguage } from '@/lib/i18n';
+import { LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY } from '@/lib/constants';
 
 type CapturedLocation = { latitude: number; longitude: number; accuracy: number };
 
@@ -26,6 +27,10 @@ export default function AddStationPage() {
   };
 
   useEffect(() => {
+    if (Date.now() < LAUNCH_DATE.getTime() && localStorage.getItem(LAUNCH_BYPASS_STORAGE_KEY) !== 'true') {
+      window.location.replace('/');
+      return;
+    }
     captureLocation();
   }, []);
 
