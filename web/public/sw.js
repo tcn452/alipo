@@ -80,6 +80,9 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const action = event.action;
+  if (action === 'dismiss') return;
+
   const stationId = event.notification.data?.stationId;
   const targetUrl = event.notification.data?.url || (stationId ? `/?reportStation=${encodeURIComponent(stationId)}` : '/');
 
