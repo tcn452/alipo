@@ -12,7 +12,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('stations')
-    .select('id,latest_status,latest_queue,last_reported_at,petrol_status,diesel_status,petrol_reported_at,diesel_reported_at,petrol_confidence,diesel_confidence,petrol_confirmations,diesel_confirmations,updated_at')
+    .select('id,latest_status,latest_queue,last_reported_at,petrol_status,diesel_status,petrol_reported_at,diesel_reported_at,updated_at')
     .eq('active', true);
 
   if (error) {
