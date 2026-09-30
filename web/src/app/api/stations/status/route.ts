@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { publicCdnCacheHeaders } from '@/lib/cache-headers';
-import { createSupabaseAdminClient } from '@/lib/supabase-server';
+import { createSupabasePublicClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const supabase = createSupabaseAdminClient();
+  const supabase = createSupabasePublicClient();
   if (!supabase) {
     return NextResponse.json({ statuses: [], error: 'Supabase not configured' }, { status: 503 });
   }

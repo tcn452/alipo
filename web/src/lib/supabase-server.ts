@@ -13,6 +13,17 @@ export function createSupabaseAdminClient() {
   });
 }
 
+export function createSupabasePublicClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  if (!url || !publishableKey) return null;
+
+  return createClient(url, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 export async function requireWekodeOps(request: Request) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) return { error: 'Supabase server credentials are not configured.', status: 503 } as const;

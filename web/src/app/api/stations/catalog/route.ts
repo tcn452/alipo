@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { classifyStationBrand } from '@/lib/constants';
 import { publicCdnCacheHeaders } from '@/lib/cache-headers';
-import { createSupabaseAdminClient } from '@/lib/supabase-server';
+import { createSupabasePublicClient } from '@/lib/supabase-server';
 import { Station } from '@/types/alipo';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const supabase = createSupabaseAdminClient();
+  const supabase = createSupabasePublicClient();
   if (!supabase) {
     return NextResponse.json({ stations: [], error: 'Supabase not configured' }, { status: 503 });
   }
