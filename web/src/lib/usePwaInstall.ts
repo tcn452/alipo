@@ -43,13 +43,6 @@ function recordPwaInstall(
   
   // Track in Google Analytics (gtag)
   trackPwaInstall(p, trigger);
-
-  // Track in Supabase database
-  void fetch('/api/pwa-install', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ platform: p }),
-  }).catch(() => undefined);
 }
 
 function ensureInstallListener() {

@@ -88,13 +88,6 @@ export function LaunchCountdown({ onUnlock }: LaunchCountdownProps) {
     
     // Google Analytics (gtag) event
     trackPwaInstall(p, 'prompt');
-
-    // Supabase database record
-    void fetch('/api/pwa-install', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform: p }),
-    }).catch(() => undefined);
   };
 
   useEffect(() => {
