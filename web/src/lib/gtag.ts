@@ -60,3 +60,55 @@ export function trackShare(method: string = 'whatsapp', shareUrl?: string) {
     item_id: shareUrl || 'alipo.co.mw',
   });
 }
+
+/**
+ * Log sponsor banner impression for CTR tracking
+ */
+export function trackSponsorImpression(
+  sponsor: { id: string; name: string; city?: string },
+  placement: string = 'banner'
+) {
+  trackEvent('sponsor_impression', {
+    event_category: 'Sponsorship',
+    sponsor_id: sponsor.id,
+    sponsor_name: sponsor.name,
+    placement,
+    city: sponsor.city || 'all',
+  });
+
+  // Standard GA4 view_promotion event for built-in promotion CTR reporting
+  trackEvent('view_promotion', {
+    promotion_id: sponsor.id,
+    promotion_name: sponsor.name,
+    creative_name: placement,
+    creative_slot: placement,
+    location_id: sponsor.city || 'all',
+  });
+}
+
+/**
+ * Log sponsor banner click for CTR tracking
+ */
+export function trackSponsorClick(
+  sponsor: { id: string; name: string; cta_url: string; city?: string },
+  placement: string = 'banner'
+) {
+  trackEvent('sponsor_click', {
+    event_category: 'Sponsorship',
+    sponsor_id: sponsor.id,
+    sponsor_name: sponsor.name,
+    placement,
+    city: sponsor.city || 'all',
+    destination_url: sponsor.cta_url,
+  });
+
+  // Standard GA4 select_promotion event for built-in promotion CTR reporting
+  trackEvent('select_promotion', {
+    promotion_id: sponsor.id,
+    promotion_name: sponsor.name,
+    creative_name: placement,
+    creative_slot: placement,
+    location_id: sponsor.city || 'all',
+  });
+}
+

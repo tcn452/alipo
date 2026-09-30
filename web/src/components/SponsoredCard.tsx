@@ -1,8 +1,10 @@
 'use client';
 
+import { useEffect } from 'react';
 import { ArrowUpRight, Compass, Store, Sparkles } from 'lucide-react';
 import { Sponsor } from '@/types/alipo';
 import { useLanguage } from '@/lib/i18n';
+import { trackSponsorImpression, trackSponsorClick } from '@/lib/gtag';
 
 interface SponsoredCardProps {
   sponsor: Sponsor;
@@ -10,6 +12,10 @@ interface SponsoredCardProps {
 
 export function SponsoredCard({ sponsor }: SponsoredCardProps) {
   const { t } = useLanguage();
+
+  useEffect(() => {
+    trackSponsorImpression(sponsor, 'in_feed');
+  }, [sponsor.id]);
 
   return (
     <aside
@@ -63,6 +69,7 @@ export function SponsoredCard({ sponsor }: SponsoredCardProps) {
           href={sponsor.cta_url}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => trackSponsorClick(sponsor, 'in_feed')}
           className="inline-flex min-h-10 items-center gap-1.5 bg-forest px-3.5 py-1.5 text-xs font-black text-white transition hover:bg-[#0b5940]"
         >
           {t(sponsor.cta_text || 'Explore Giants Travel')}

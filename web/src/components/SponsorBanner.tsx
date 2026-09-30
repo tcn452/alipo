@@ -5,6 +5,7 @@ import { ArrowUpRight, MapPin, Store, Sparkles } from 'lucide-react';
 import { Sponsor } from '@/types/alipo';
 import { FALLBACK_SPONSORS, getActiveSponsors } from '@/lib/sponsors';
 import { useLanguage } from '@/lib/i18n';
+import { trackSponsorImpression, trackSponsorClick } from '@/lib/gtag';
 import { SponsoredCard } from './SponsoredCard';
 
 interface SponsorBannerProps {
@@ -21,7 +22,9 @@ export function SponsorBanner({ placement = 'all', city = 'all', className = '' 
     let isMounted = true;
     void getActiveSponsors(placement, city).then((sponsors) => {
       if (isMounted && sponsors.length > 0) {
-        setSponsor(sponsors[Math.floor(Math.random() * sponsors.length)]);
+        const picked = sponsors[Math.floor(Math.random() * sponsors.length)];
+        setSponsor(picked);
+        trackSponsorImpression(picked, placement);
       }
     });
     return () => {
@@ -76,6 +79,7 @@ export function SponsorBanner({ placement = 'all', city = 'all', className = '' 
               href={sponsor.cta_url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackSponsorClick(sponsor, 'post_report')}
               className="inline-flex min-h-10 items-center gap-1.5 bg-forest px-4 py-2 text-xs font-black text-white transition hover:bg-[#0b5940]"
             >
               {t(sponsor.cta_text || 'Explore Giants Travel')}
@@ -112,6 +116,7 @@ export function SponsorBanner({ placement = 'all', city = 'all', className = '' 
           href={sponsor.cta_url}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => trackSponsorClick(sponsor, placement || 'banner')}
           className="inline-flex items-center gap-1.5 bg-forest px-3.5 py-1.5 text-xs font-black text-white transition hover:bg-[#0b5940]"
         >
           {t(sponsor.cta_text || 'Explore Giants Travel')}
