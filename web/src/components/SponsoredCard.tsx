@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowUpRight, Compass, Globe, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Compass, Store, Sparkles } from 'lucide-react';
 import { Sponsor } from '@/types/alipo';
 import { useLanguage } from '@/lib/i18n';
 
@@ -39,7 +39,7 @@ export function SponsoredCard({ sponsor }: SponsoredCardProps) {
         </div>
 
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-forest/20 bg-white text-forest shadow-xs">
-          <Globe className="h-5 w-5 text-forest" />
+          <Store className="h-5 w-5 text-forest" />
         </div>
       </div>
 
@@ -57,7 +57,7 @@ export function SponsoredCard({ sponsor }: SponsoredCardProps) {
 
       <div className="mt-4 flex items-center justify-between border-t border-forest/15 pt-3">
         <span className="text-[10px] font-semibold text-muted">
-          Malawi travel & transfers
+          {sponsor.city && sponsor.city !== 'all' ? sponsor.city : 'Malawi'} · {t(sponsor.category || 'Local business')}
         </span>
         <a
           href={sponsor.cta_url}

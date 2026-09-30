@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, Globe, Plane, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowUpRight, MapPin, Store, Sparkles } from 'lucide-react';
 import { Sponsor } from '@/types/alipo';
 import { FALLBACK_SPONSORS, getActiveSponsors } from '@/lib/sponsors';
 import { useLanguage } from '@/lib/i18n';
@@ -21,7 +21,7 @@ export function SponsorBanner({ placement = 'all', city = 'all', className = '' 
     let isMounted = true;
     void getActiveSponsors(placement, city).then((sponsors) => {
       if (isMounted && sponsors.length > 0) {
-        setSponsor(sponsors[0]);
+        setSponsor(sponsors[Math.floor(Math.random() * sponsors.length)]);
       }
     });
     return () => {
@@ -51,7 +51,7 @@ export function SponsorBanner({ placement = 'all', city = 'all', className = '' 
 
           <div className="mt-2.5 flex items-start gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest text-white">
-              <Plane className="h-5 w-5" />
+              <Store className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
               <h4 className="text-base font-black text-ink sm:text-lg">
@@ -69,8 +69,8 @@ export function SponsorBanner({ placement = 'all', city = 'all', className = '' 
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-forest/15 pt-3">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-forest">
-              <ShieldCheck className="h-3.5 w-3.5 text-orange" />
-              <span>{t('Local Malawian travel specialists')}</span>
+              <MapPin className="h-3.5 w-3.5 text-orange" />
+              <span>{sponsor.city && sponsor.city !== 'all' ? sponsor.city : 'Malawi'} · {t(sponsor.category || 'Local business')}</span>
             </div>
             <a
               href={sponsor.cta_url}

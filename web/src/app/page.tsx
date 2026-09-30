@@ -117,6 +117,21 @@ function stationFromSupabase(row: Record<string, unknown>): Station | null {
 }
 
 async function loadSupabaseStations(city: string, latitude: number, longitude: number, radiusKm: number) {
+  // 1. Try edge-cached API endpoint first (drastically lowers Supabase egress under high traffic)
+  try {
+    const edgeUrl = `/api/stations/live?city=${encodeURIComponent(city)}&lat=${latitude}&lon=${longitude}&radius=${radiusKm}`;
+    const res = await fetch(edgeUrl);
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.stations) && json.stations.length > 0) {
+        return json.stations as Station[];
+      }
+    }
+  } catch {
+    // Fall back to direct Supabase client query
+  }
+
+  // 2. Direct Supabase query fallback
   if (!isSupabaseConfigured) return [];
   const query = city === 'All Cities'
     ? supabase.rpc('all_stations')
@@ -330,6 +345,7 @@ export default function HomePage() {
   // Only auto-start when permission is already granted. Samsung Internet (and others)
   // suppress the permission prompt unless location is requested from a user tap.
   useEffect(() => {
+    if (!launchChecked || (isPrelaunch && !isBypassed)) return;
     let cancelled = false;
     void (async () => {
       const permission = await queryGeolocationPermission();
@@ -339,7 +355,7 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [activateLocation]);
+  }, [activateLocation, isPrelaunch, isBypassed, launchChecked]);
 
   // If the user enables Location in Android settings and returns, retry automatically.
   useEffect(() => {
@@ -393,17 +409,32 @@ export default function HomePage() {
   }, [stationAlertsEnabled]);
 
   useEffect(() => {
+    // Shield Supabase: never fetch during pre-launch unless unlocked
+    if (!launchChecked || (isPrelaunch && !isBypassed)) return;
     void fetchStations();
-  }, [fetchStations]);
+  }, [fetchStations, isPrelaunch, isBypassed, launchChecked]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
+    // Shield Supabase: never open Realtime websocket channels during pre-launch
+    if (!launchChecked || (isPrelaunch && !isBypassed)) return;
+
+    let debounceTimer: number | null = null;
     const channel = supabase
       .channel('public-stations')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stations' }, () => { void fetchStations(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stations' }, () => {
+        if (debounceTimer) window.clearTimeout(debounceTimer);
+        debounceTimer = window.setTimeout(() => {
+          void fetchStations();
+        }, 8000); // 8-second debounce to protect Supabase from thundering herd
+      })
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [fetchStations]);
+
+    return () => {
+      if (debounceTimer) window.clearTimeout(debounceTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [fetchStations, isPrelaunch, isBypassed, launchChecked]);
 
   useEffect(() => {
     let watchedIds: string[] = [];
