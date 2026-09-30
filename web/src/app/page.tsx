@@ -8,10 +8,10 @@ import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
 import { SponsorBanner } from '@/components/SponsorBanner';
-import { CITY_CENTERS, DEFAULT_CITY, classifyStationBrand, getStationStockStatus, STATION_STOCK_CONFIG, LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY } from '@/lib/constants';
+import { CITY_CENTERS, DEFAULT_CITY, getStationStockStatus, STATION_STOCK_CONFIG, LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY } from '@/lib/constants';
 import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition, isStandalonePwa, subscribeGeolocationPermissionChange } from '@/lib/geolocation';
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { Station } from '@/types/alipo';
+import { trackCacheResponse } from '@/lib/gtag';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
 import { HowItWorks } from '@/components/HowItWorks';
@@ -60,88 +60,51 @@ function distanceInMetres(from: [number, number], station: Pick<Station, 'latitu
   return 6_371_000 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
-function stationFromSupabase(row: Record<string, unknown>): Station | null {
-  let latitude = typeof row.latitude === 'number' ? row.latitude : undefined;
-  let longitude = typeof row.longitude === 'number' ? row.longitude : undefined;
-  let location = row.location;
-  if (typeof location === 'string') {
-    try { location = JSON.parse(location); } catch { location = null; }
-  }
-  if ((!latitude || !longitude) && location && typeof location === 'object' && 'coordinates' in location) {
-    const coordinates = (location as { coordinates?: unknown }).coordinates;
-    if (Array.isArray(coordinates) && coordinates.length >= 2) {
-      longitude = Number(coordinates[0]);
-      latitude = Number(coordinates[1]);
-    }
-  }
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+type StationStatus = Pick<Station,
+  'id' | 'latest_status' | 'latest_queue' | 'last_reported_at' | 'petrol_status' | 'diesel_status'
+  | 'petrol_reported_at' | 'diesel_reported_at' | 'petrol_confidence' | 'diesel_confidence'
+  | 'petrol_confirmations' | 'diesel_confirmations'
+> & { updated_at?: string };
 
-  const lastReportedAt = row.last_reported_at ? String(row.last_reported_at) : undefined;
-  const reportedStatus = row.latest_status as Station['latest_status'];
-  const isStale = lastReportedAt ? Date.now() - new Date(lastReportedAt).getTime() >= 4 * 60 * 60 * 1000 : false;
-  const fuelStatus = (fuel: 'petrol' | 'diesel') => {
-    const reportedAt = row[`${fuel}_reported_at`] ? String(row[`${fuel}_reported_at`]) : undefined;
-    const status = (row[`${fuel}_status`] || 'unknown') as Station['latest_status'];
-    return { status, isStale: Boolean(reportedAt && Date.now() - new Date(reportedAt).getTime() >= 4 * 60 * 60 * 1000 && status !== 'unknown'), reportedAt };
-  };
-  const petrol = fuelStatus('petrol');
-  const diesel = fuelStatus('diesel');
+async function fetchCachedJson<T>(route: string): Promise<T> {
+  const response = await fetch(route);
+  trackCacheResponse(route, response);
+  if (!response.ok) throw new Error(`${route} returned ${response.status}`);
+  return response.json() as Promise<T>;
+}
+
+function applyStatus(station: Station, status?: StationStatus): Station {
+  const lastReportedAt = status?.last_reported_at;
+  const latestStatus = status?.latest_status || 'unknown';
+  const staleAfterMs = 4 * 60 * 60 * 1000;
+  const isStale = (reportedAt?: string) => Boolean(reportedAt && Date.now() - new Date(reportedAt).getTime() >= staleAfterMs);
 
   return {
-    id: String(row.id),
-    name: String(row.name || 'Fuel station'),
-    brand: classifyStationBrand(String(row.name || ''), String(row.brand || '')),
-    latitude: latitude as number,
-    longitude: longitude as number,
-    district: String(row.district || row.city || 'Malawi'),
-    city: String(row.city || 'Malawi'),
-    verified: Boolean(row.verified),
-    fuel_types: Array.isArray(row.fuel_types) ? row.fuel_types.filter((type): type is 'petrol' | 'diesel' => type === 'petrol' || type === 'diesel') : ['petrol', 'diesel'],
-    latest_status: reportedStatus,
-    is_stale: isStale && reportedStatus !== 'unknown',
-    petrol_status: petrol.status,
-    diesel_status: diesel.status,
-    petrol_is_stale: petrol.isStale,
-    diesel_is_stale: diesel.isStale,
-    petrol_reported_at: petrol.reportedAt,
-    diesel_reported_at: diesel.reportedAt,
-    latest_queue: row.latest_queue as Station['latest_queue'],
-    petrol_confidence: typeof row.petrol_confidence === 'number' ? row.petrol_confidence : Number(row.petrol_confidence || 0),
-    diesel_confidence: typeof row.diesel_confidence === 'number' ? row.diesel_confidence : Number(row.diesel_confidence || 0),
-    petrol_confirmations: Number(row.petrol_confirmations || 0),
-    diesel_confirmations: Number(row.diesel_confirmations || 0),
-    last_reported_at: lastReportedAt,
-    updated: row.updated_at ? String(row.updated_at) : undefined,
-    distance_km: typeof row.distance_km === 'number' ? row.distance_km : undefined,
+    ...station,
+    ...status,
+    updated: status?.updated_at,
+    latest_status: latestStatus,
+    is_stale: latestStatus !== 'unknown' && isStale(lastReportedAt),
+    petrol_status: status?.petrol_status || 'unknown',
+    diesel_status: status?.diesel_status || 'unknown',
+    petrol_is_stale: status?.petrol_status !== 'unknown' && isStale(status?.petrol_reported_at),
+    diesel_is_stale: status?.diesel_status !== 'unknown' && isStale(status?.diesel_reported_at),
   };
 }
 
-async function loadSupabaseStations(city: string, latitude: number, longitude: number, radiusKm: number) {
-  // 1. Try edge-cached API endpoint first (drastically lowers Supabase egress under high traffic)
-  try {
-    const edgeUrl = `/api/stations/live?city=${encodeURIComponent(city)}&lat=${latitude}&lon=${longitude}&radius=${radiusKm}`;
-    const res = await fetch(edgeUrl);
-    if (res.ok) {
-      const json = await res.json();
-      if (Array.isArray(json.stations) && json.stations.length > 0) {
-        return json.stations as Station[];
-      }
-    }
-  } catch {
-    // Fall back to direct Supabase client query
-  }
+async function loadCachedStations(city: string, latitude: number, longitude: number, radiusKm: number) {
+  const [cataloguePayload, statusPayload] = await Promise.all([
+    fetchCachedJson<{ stations?: Station[] }>('/api/stations/catalog'),
+    fetchCachedJson<{ statuses?: StationStatus[] }>('/api/stations/status').catch(() => ({ statuses: [] })),
+  ]);
+  const statuses = new Map((statusPayload.statuses || []).map((status) => [status.id, status]));
+  const stations = (cataloguePayload.stations || []).map((station) => applyStatus(station, statuses.get(station.id)));
+  if (city === 'All Cities') return stations;
 
-  // 2. Direct Supabase query fallback
-  if (!isSupabaseConfigured) return [];
-  const query = city === 'All Cities'
-    ? supabase.rpc('all_stations')
-    : supabase.rpc('nearby_stations', { p_latitude: latitude, p_longitude: longitude, p_radius_km: radiusKm });
-  const { data, error } = await query;
-  if (error) throw error;
-  return ((data || []) as Record<string, unknown>[]).flatMap((row) => {
-    const station = stationFromSupabase(row);
-    return station ? [station] : [];
-  });
+  return stations
+    .map((station) => ({ ...station, distance_km: distanceInMetres([latitude, longitude], station) / 1000 }))
+    .filter((station) => (station.distance_km || 0) <= radiusKm)
+    .sort((a, b) => (a.distance_km || 0) - (b.distance_km || 0));
 }
 
 export default function HomePage() {
@@ -211,12 +174,12 @@ export default function HomePage() {
   const clearMapSelection = useCallback(() => setSelectedStation(null), []);
   const closeHowItWorks = useCallback(() => setIsHowItWorksOpen(false), []);
 
-  const fetchStations = useCallback(async () => {
+  const fetchStations = useCallback(async (background = false) => {
     const requestId = ++stationRequestRef.current;
-    setLoading(true);
+    if (!background) setLoading(true);
     try {
       const [latitude, longitude] = selectedCity === 'My Location' && userLocation ? userLocation : (CITY_CENTERS[selectedCity] || CITY_CENTERS['All Cities']);
-      const reported = await loadSupabaseStations(selectedCity, latitude, longitude, radiusKm).catch(() => []);
+      const reported = await loadCachedStations(selectedCity, latitude, longitude, radiusKm).catch(() => []);
 
       if (reported.length) {
         if (requestId !== stationRequestRef.current) return;
@@ -237,7 +200,7 @@ export default function HomePage() {
       setStations(mapped);
       setSelectedStation((current) => current && mapped.some((item) => item.id === current.id) ? current : null);
     } finally {
-      if (requestId === stationRequestRef.current) setLoading(false);
+      if (!background && requestId === stationRequestRef.current) setLoading(false);
     }
   }, [radiusKm, selectedCity, userLocation]);
 
@@ -415,24 +378,16 @@ export default function HomePage() {
   }, [fetchStations, isPrelaunch, isBypassed, launchChecked]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    // Shield Supabase: never open Realtime websocket channels during pre-launch
+    // Poll the shared edge cache instead of opening one Supabase Realtime socket per visitor.
     if (!launchChecked || (isPrelaunch && !isBypassed)) return;
-
-    let debounceTimer: number | null = null;
-    const channel = supabase
-      .channel('public-stations')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stations' }, () => {
-        if (debounceTimer) window.clearTimeout(debounceTimer);
-        debounceTimer = window.setTimeout(() => {
-          void fetchStations();
-        }, 8000); // 8-second debounce to protect Supabase from thundering herd
-      })
-      .subscribe();
-
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void fetchStations(true);
+    };
+    const interval = window.setInterval(refresh, 30_000);
+    document.addEventListener('visibilitychange', refresh);
     return () => {
-      if (debounceTimer) window.clearTimeout(debounceTimer);
-      void supabase.removeChannel(channel);
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refresh);
     };
   }, [fetchStations, isPrelaunch, isBypassed, launchChecked]);
 

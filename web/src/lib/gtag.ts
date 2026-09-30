@@ -18,6 +18,18 @@ export function trackEvent(eventName: string, params?: GtagEventParams) {
   }
 }
 
+export function trackCacheResponse(route: string, response: Response) {
+  // Uniform sampling keeps GA volume small while preserving a useful hit-rate estimate.
+  if (Math.random() > 0.1) return;
+  trackEvent('edge_cache_response', {
+    event_category: 'Performance',
+    route,
+    cache_status: response.headers.get('x-vercel-cache') || 'unavailable',
+    cache_age_seconds: Number(response.headers.get('age') || 0),
+    response_status: response.status,
+  });
+}
+
 /**
  * Log PWA installation event to Google Analytics
  */
@@ -111,4 +123,3 @@ export function trackSponsorClick(
     location_id: sponsor.city || 'all',
   });
 }
-

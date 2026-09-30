@@ -1,5 +1,5 @@
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { Sponsor } from '@/types/alipo';
+import { trackCacheResponse } from '@/lib/gtag';
 
 export const FALLBACK_SPONSORS: Sponsor[] = [
   {
@@ -31,7 +31,16 @@ export const FALLBACK_SPONSORS: Sponsor[] = [
 
 let cachedSponsors: Sponsor[] | null = null;
 let cacheExpiresAt = 0;
+let sponsorRequest: Promise<Sponsor[]> | null = null;
 const SPONSOR_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+async function fetchSponsors() {
+  const response = await fetch('/api/sponsors');
+  trackCacheResponse('/api/sponsors', response);
+  if (!response.ok) throw new Error('Sponsors unavailable');
+  const payload = await response.json() as { sponsors?: Sponsor[] };
+  return Array.isArray(payload.sponsors) ? payload.sponsors : [];
+}
 
 export async function getActiveSponsors(placement: 'in_feed' | 'post_report' | 'banner' | 'all' = 'all', city = 'all'): Promise<Sponsor[]> {
   if (cachedSponsors && Date.now() < cacheExpiresAt) {
@@ -42,41 +51,21 @@ export async function getActiveSponsors(placement: 'in_feed' | 'post_report' | '
     });
   }
 
-  if (isSupabaseConfigured) {
-    try {
-      let query = supabase
-        .from('sponsors')
-        .select('*')
-        .eq('is_active', true);
-
-      const { data, error } = await query;
-      if (!error && Array.isArray(data) && data.length > 0) {
-        cachedSponsors = data.map((row) => ({
-          id: String(row.id),
-          name: String(row.name),
-          tagline: row.tagline ? String(row.tagline) : undefined,
-          description: row.description ? String(row.description) : undefined,
-          category: row.category ? String(row.category) : undefined,
-          cta_text: row.cta_text ? String(row.cta_text) : undefined,
-          cta_url: String(row.cta_url),
-          image_url: row.image_url ? String(row.image_url) : undefined,
-          logo_url: row.logo_url ? String(row.logo_url) : undefined,
-          phone: row.phone ? String(row.phone) : undefined,
-          placement: (row.placement || 'all') as Sponsor['placement'],
-          city: row.city ? String(row.city) : 'all',
-          badge: row.badge ? String(row.badge) : undefined,
-        }));
-        cacheExpiresAt = Date.now() + SPONSOR_CACHE_TTL_MS;
-
-        return cachedSponsors.filter((s) => {
-          const matchesPlacement = placement === 'all' || s.placement === 'all' || s.placement === placement;
-          const matchesCity = city === 'all' || !s.city || s.city === 'all' || s.city.toLowerCase() === city.toLowerCase();
-          return matchesPlacement && matchesCity;
-        });
-      }
-    } catch {
-      // Fallback below
+  try {
+    sponsorRequest ||= fetchSponsors();
+    const sponsors = await sponsorRequest;
+    sponsorRequest = null;
+    if (sponsors.length > 0) {
+      cachedSponsors = sponsors;
+      cacheExpiresAt = Date.now() + SPONSOR_CACHE_TTL_MS;
+      return sponsors.filter((s) => {
+        const matchesPlacement = placement === 'all' || s.placement === 'all' || s.placement === placement;
+        const matchesCity = city === 'all' || !s.city || s.city === 'all' || s.city.toLowerCase() === city.toLowerCase();
+        return matchesPlacement && matchesCity;
+      });
     }
+  } catch {
+    sponsorRequest = null;
   }
 
   return FALLBACK_SPONSORS.filter((s) => {
