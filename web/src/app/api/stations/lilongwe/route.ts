@@ -1,4 +1,3 @@
-import { unstable_cache } from 'next/cache';
 import { Station } from '@/types/alipo';
 import { classifyStationBrand } from '@/lib/constants';
 
@@ -29,7 +28,7 @@ function distanceKm(a: { latitude: number; longitude: number }, b: { latitude: n
   return 6371 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
-const loadLilongweFuelStations = unstable_cache(async () => {
+const loadLilongweFuelStations = async () => {
   // A bounding-box lookup is materially faster on Overpass than a large `around`
   // query. Results are trimmed back to the exact 20 km circle below.
   const query = '[out:json][timeout:20];nw["amenity"="fuel"](-14.143,33.589,-13.782,33.960);out center tags qt;';
@@ -43,6 +42,7 @@ const loadLilongweFuelStations = unstable_cache(async () => {
   for (const endpoint of endpoints) {
     try {
       const response = await fetch(endpoint, {
+        cache: 'no-store',
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
@@ -95,13 +95,13 @@ const loadLilongweFuelStations = unstable_cache(async () => {
   }
 
   return stations.sort((a, b) => a.name.localeCompare(b.name));
-}, ['osm-lilongwe-fuel-stations-20km'], { revalidate: 21_600 });
+};
 
 export async function GET() {
   try {
     const stations = await loadLilongweFuelStations();
     return Response.json({ stations, radius_km: 20, source: 'OpenStreetMap contributors' }, {
-      headers: { 'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=86400' },
+      headers: { 'Cache-Control': 'no-store', 'CDN-Cache-Control': 'no-store', 'Vercel-CDN-Cache-Control': 'no-store' },
     });
   } catch (error) {
     return Response.json({ stations: [], radius_km: 20, source: 'OpenStreetMap contributors', error: error instanceof Error ? error.message : 'Station lookup unavailable' }, { status: 502 });

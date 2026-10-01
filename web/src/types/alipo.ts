@@ -29,6 +29,9 @@ export interface Station {
   diesel_confidence?: number;
   petrol_confirmations?: number;
   diesel_confirmations?: number;
+  petrol_reports?: number;
+  diesel_reports?: number;
+  needs_location_confirmation?: boolean;
   last_reported_at?: string;
   created?: string;
   updated?: string;

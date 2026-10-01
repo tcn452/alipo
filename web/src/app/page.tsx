@@ -9,7 +9,7 @@ import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
 import { SponsorBanner } from '@/components/SponsorBanner';
 import { CITY_CENTERS, DEFAULT_CITY, classifyStationBrand, getStationStockStatus, STATION_STOCK_CONFIG, LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY } from '@/lib/constants';
-import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition, isStandalonePwa, subscribeGeolocationPermissionChange } from '@/lib/geolocation';
+import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition, isStandalonePwa, subscribeGeolocationPermissionChange, LOCATION_CONSENT_KEY, shouldResumeLocation } from '@/lib/geolocation';
 import { Station } from '@/types/alipo';
 import { trackCacheResponse } from '@/lib/gtag';
 import { TimeAgo } from '@/components/TimeAgo';
@@ -120,6 +120,15 @@ export default function HomePage() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   const [isNameSuggestionsOpen, setIsNameSuggestionsOpen] = useState(false);
+  const [announcementDismissed, setAnnouncementDismissed] = useState(true);
+  useEffect(() => {
+    try { setAnnouncementDismissed(localStorage.getItem('alipo-availability-announcement-20261001-dismissed') === 'true'); }
+    catch { setAnnouncementDismissed(false); }
+  }, []);
+  const dismissAnnouncement = () => {
+    setAnnouncementDismissed(true);
+    try { localStorage.setItem('alipo-availability-announcement-20261001-dismissed', 'true'); } catch { /* Still dismiss for this session. */ }
+  };
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('list');
   const [loading, setLoading] = useState(false);
@@ -205,6 +214,7 @@ export default function HomePage() {
   }, [radiusKm, selectedCity, userLocation]);
 
   const applyPosition = useCallback((coords: GeolocationCoordinates) => {
+    try { localStorage.setItem(LOCATION_CONSENT_KEY, 'true'); } catch { /* Permission is still usable without storage. */ }
     if (!isInMalawi(coords.latitude, coords.longitude)) {
       if (locationWatchRef.current !== null) {
         navigator.geolocation.clearWatch(locationWatchRef.current);
@@ -232,11 +242,8 @@ export default function HomePage() {
     locationWatchRef.current = watchUserPosition(
       ({ coords }) => applyPosition(coords),
       (code) => {
-        if (code === 'denied') {
-          setLocationState((current) => (current === 'active' ? current : 'denied'));
-          return;
-        }
-        setLocationState((current) => (current === 'active' ? current : 'error'));
+        setLocationState(code === 'denied' ? 'denied' : 'error');
+        if (code === 'denied') setIsLocationHelpOpen(true);
       },
     );
   }, [applyPosition]);
@@ -312,7 +319,9 @@ export default function HomePage() {
     let cancelled = false;
     void (async () => {
       const permission = await queryGeolocationPermission();
-      if (cancelled || permission !== 'granted') return;
+      let previouslyAllowed = false;
+      try { previouslyAllowed = localStorage.getItem(LOCATION_CONSENT_KEY) === 'true'; } catch { /* Storage is optional. */ }
+      if (cancelled || !shouldResumeLocation(permission, previouslyAllowed)) return;
       activateLocation();
     })();
     return () => {
@@ -323,14 +332,23 @@ export default function HomePage() {
   // If the user enables Location in Android settings and returns, retry automatically.
   useEffect(() => {
     const maybeRetry = () => {
-      if (document.visibilityState !== 'visible') return;
-      if (locationState !== 'denied' && locationState !== 'error') return;
+      if (document.visibilityState !== 'visible') {
+        if (locationWatchRef.current !== null) { navigator.geolocation.clearWatch(locationWatchRef.current); locationWatchRef.current = null; }
+        return;
+      }
       void queryGeolocationPermission().then((permission) => {
-        if (permission === 'granted') activateLocation();
+        let previouslyAllowed = false;
+        try { previouslyAllowed = localStorage.getItem(LOCATION_CONSENT_KEY) === 'true'; } catch { /* Storage is optional. */ }
+        if (shouldResumeLocation(permission, previouslyAllowed)) activateLocation();
       });
     };
     const unsubscribe = subscribeGeolocationPermissionChange((state) => {
       if (state === 'granted') activateLocation();
+      if (state === 'denied') {
+        if (locationWatchRef.current !== null) { navigator.geolocation.clearWatch(locationWatchRef.current); locationWatchRef.current = null; }
+        setLocationState('denied');
+        setIsLocationHelpOpen(true);
+      }
     });
     document.addEventListener('visibilitychange', maybeRetry);
     window.addEventListener('focus', maybeRetry);
@@ -339,7 +357,7 @@ export default function HomePage() {
       document.removeEventListener('visibilitychange', maybeRetry);
       window.removeEventListener('focus', maybeRetry);
     };
-  }, [activateLocation, locationState]);
+  }, [activateLocation]);
 
   useEffect(() => {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) {
@@ -378,7 +396,7 @@ export default function HomePage() {
   }, [fetchStations, isPrelaunch, isBypassed, launchChecked]);
 
   useEffect(() => {
-    // Poll the shared edge cache instead of opening one Supabase Realtime socket per visitor.
+    // Poll uncached live readings while visible.
     if (!launchChecked || (isPrelaunch && !isBypassed)) return;
     const refresh = () => {
       if (document.visibilityState === 'visible') void fetchStations(true);
@@ -473,7 +491,7 @@ export default function HomePage() {
       if (Date.now() - (history[station.id] || 0) < STATION_ALERT_COOLDOWN_MS) return;
       const registration = await navigator.serviceWorker.ready;
       await registration.showNotification(t('Are you at {station}?', { station: station.name }), {
-        body: t('When safely parked, help other drivers with a quick fuel report.'),
+        body: t(station.needs_location_confirmation ? 'This station location is unconfirmed. When safely parked, open Alipo and confirm its map pin.' : 'When safely parked, help other drivers with a quick fuel report.'),
         icon: '/icon-192.png',
         badge: '/favicon.png',
         tag: `station-arrival-${station.id}`,
@@ -570,6 +588,13 @@ export default function HomePage() {
           </div>
         </section>
 
+        {!announcementDismissed ? <section aria-label={t('Service announcement')} className="border-y border-emerald-300 bg-emerald-50">
+          <div className="mx-auto flex max-w-[1440px] items-start gap-3 px-5 py-4 sm:px-8 lg:px-12">
+            <Info className="mt-0.5 h-5 w-5 shrink-0 text-emerald-800" />
+            <div className="flex-1"><h2 className="text-sm font-black text-emerald-950">Fuel availability updates are fixed / Zosintha za kupezeka kwa mafuta zakonzedwa</h2><p lang="en" className="mt-1 text-sm text-emerald-900">Petrol and diesel reports now show the latest fuel availability again. We apologise for the disruption. Refresh the page if you still see old results, and keep sharing updates to help other drivers.</p><p lang="ny" className="mt-2 text-sm text-emerald-900">Malipoti a petulo ndi dizilo tsopano akusonyezanso kupezeka kwa mafuta molondola. Tikupepesa chifukwa cha vuto limeneli. Ngati mukuonabe uthenga wakale, tsegulaninso tsambali. Pitirizani kutumiza malipoti kuti muthandize madalaivala ena.</p></div>
+            <button type="button" aria-label={t('Dismiss announcement')} onClick={dismissAnnouncement} className="grid min-h-10 min-w-10 place-items-center text-emerald-900"><XCircle className="h-5 w-5" /></button>
+          </div>
+        </section> : null}
         <StationFilters
           fuel={selectedFuel}
           onFuelChange={setSelectedFuel}
@@ -604,7 +629,7 @@ export default function HomePage() {
           <aside className={`${activeTab === 'map' ? 'hidden lg:block' : 'block'} min-w-0 max-w-full border-r border-line bg-[#f8f5ee] px-4 py-6 sm:px-8 lg:px-7`}>
             <div className="mb-3 flex items-end justify-between"><div><p className="eyebrow text-orange">{selectedCity === 'All Cities' ? t('Malawi coverage') : selectedCity === 'My Location' ? t('Near your location') : t('{city} coverage', { city: selectedCity })}</p><h2 className="mt-1 text-xl font-black tracking-[-.03em]">{t(selectedCity !== 'All Cities' ? '{count} fuel stations within {radius} km' : '{count} fuel stations', { count: filteredStations.length, radius: radiusKm })}</h2></div><button onClick={() => void fetchStations()} className="inline-flex items-center gap-2 text-xs font-bold text-forest"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> {t('Refresh')}</button></div>
             <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2"><Link href="/stations/add" className="flex min-h-11 items-center justify-between border-2 border-forest bg-forest px-3.5 text-left text-xs font-black text-white shadow-xs transition hover:bg-[#0b5940]"><span className="inline-flex items-center gap-2"><Plus className="h-4 w-4 text-[#f5aa54]" />{t('Add a missing filling station')}</span><ArrowRight className="h-4 w-4 text-[#f5aa54]" /></Link><button type="button" onClick={() => setIsNameSuggestionsOpen(true)} className="flex min-h-11 items-center justify-between border border-forest/20 bg-[#e5eddc] px-3.5 text-left text-xs font-black text-forest transition hover:border-forest"><span className="inline-flex items-center gap-2"><ThumbsUp className="h-4 w-4" />{t('Confirm suggested filling station names')}</span><ArrowRight className="h-4 w-4" /></button></div>
-            {loading ? <div role="status" className="border border-line bg-white p-8 text-center"><RefreshCw className="mx-auto h-6 w-6 animate-spin text-orange" /><p className="mt-3 font-bold">{t('Loading fuel stations')}</p><p className="mt-1 text-sm text-muted">{t('Checking live Alipo coverage…')}</p></div> : filteredStations.length ? <div className="min-w-0 space-y-3 lg:max-h-[650px] lg:overflow-y-auto lg:pr-2">{filteredStations.map((station, index) => <Fragment key={station.id}><StationCard station={station} stationNumber={index + 1} isSelected={selectedStation?.id === station.id} onSelectStation={setSelectedStation} onViewMap={viewStationOnMap} onReportClick={(item) => { setSelectedStation(item); setIsReportModalOpen(true); }} />{(index === 2 || (index > 2 && (index - 2) % 6 === 0) || (filteredStations.length < 3 && index === filteredStations.length - 1)) ? <SponsorBanner key={`sponsor-${index}`} placement="in_feed" city={selectedCity} /> : null}</Fragment>)}<div className="mt-2 border border-dashed border-forest/30 bg-[#f0f5ec] p-4 text-center"><p className="text-xs font-black text-forest">{t("Don't see your local filling station?")}</p><p className="mt-1 text-[11px] text-muted">{t('Add it while at the pumps to help other drivers.')}</p><Link href="/stations/add" className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 bg-forest px-4 text-xs font-black text-white transition hover:bg-[#0b5940]"><Plus className="h-4 w-4 text-[#f5aa54]" />{t('Add missing filling station')}</Link></div></div> : <div role="status" className="border border-line bg-white p-5 text-center">
+            {loading ? <div role="status" className="border border-line bg-white p-8 text-center"><RefreshCw className="mx-auto h-6 w-6 animate-spin text-orange" /><p className="mt-3 font-bold">{t('Loading fuel stations')}</p><p className="mt-1 text-sm text-muted">{t('Checking live Alipo coverage…')}</p></div> : filteredStations.length ? <div className="min-w-0 space-y-3 lg:max-h-[650px] lg:overflow-y-auto lg:pr-2">{filteredStations.map((station, index) => <Fragment key={station.id}><StationCard station={station} stationNumber={index + 1} isSelected={selectedStation?.id === station.id} onSelectStation={setSelectedStation} onViewMap={viewStationOnMap} onDataChanged={() => { void fetchStations(); }} onReportClick={(item) => { setSelectedStation(item); setIsReportModalOpen(true); }} />{(index === 2 || (index > 2 && (index - 2) % 6 === 0) || (filteredStations.length < 3 && index === filteredStations.length - 1)) ? <SponsorBanner key={`sponsor-${index}`} placement="in_feed" city={selectedCity} /> : null}</Fragment>)}<div className="mt-2 border border-dashed border-forest/30 bg-[#f0f5ec] p-4 text-center"><p className="text-xs font-black text-forest">{t("Don't see your local filling station?")}</p><p className="mt-1 text-[11px] text-muted">{t('Add it from home with an address and map pin, or while at the pumps.')}</p><Link href="/stations/add" className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 bg-forest px-4 text-xs font-black text-white transition hover:bg-[#0b5940]"><Plus className="h-4 w-4 text-[#f5aa54]" />{t('Add missing filling station')}</Link></div></div> : <div role="status" className="border border-line bg-white p-5 text-center">
               <Info className="mx-auto h-6 w-6 text-muted" />
               <p className="mt-3 font-bold">{emptyMessage}</p>
               <p className="mt-2 text-sm leading-6 text-muted">{recoveryContext} {t('Missing reports do not mean there is no fuel.')}</p>

@@ -38,6 +38,7 @@ export async function GET(request: Request) {
   for (const endpoint of endpoints) {
     try {
       const response = await fetch(endpoint, {
+        cache: 'no-store',
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'User-Agent': 'Alipo/1.0 (https://wekode.dev)' },
         body: new URLSearchParams({ data: query }),
@@ -77,6 +78,6 @@ export async function GET(request: Request) {
   });
 
   return Response.json({ stations, radius_km: allMalawi ? null : radiusKm, source: 'OpenStreetMap contributors' }, {
-    headers: { 'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=86400' },
+    headers: { 'Cache-Control': 'no-store', 'CDN-Cache-Control': 'no-store', 'Vercel-CDN-Cache-Control': 'no-store' },
   });
 }

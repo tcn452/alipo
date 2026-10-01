@@ -9,7 +9,7 @@ function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createClient(url, key, { auth: { persistSession: false }, global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) } });
 }
 
 function stationFromSupabase(row: Record<string, unknown>): Station | null {
@@ -97,10 +97,9 @@ export async function GET(request: NextRequest) {
       { stations, total: stations.length },
       {
         headers: {
-          // Edge caching: cache for 30s at CDN level, serve stale while revalidating in background
-          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
-          'CDN-Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
-          'Vercel-CDN-Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+          'Cache-Control': 'no-store',
+          'CDN-Cache-Control': 'no-store',
+          'Vercel-CDN-Cache-Control': 'no-store',
         },
       }
     );

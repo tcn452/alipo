@@ -3,6 +3,10 @@
 export type GeolocationPermissionState = 'granted' | 'prompt' | 'denied' | 'unknown';
 
 export type LocationRequestErrorCode = 'denied' | 'unavailable' | 'timeout' | 'unsupported';
+export const LOCATION_CONSENT_KEY = 'alipo-location-previously-allowed-v1';
+export function shouldResumeLocation(permission: GeolocationPermissionState, previouslyAllowed: boolean): boolean {
+  return permission === 'granted' || (permission === 'unknown' && previouslyAllowed);
+}
 
 export const HIGH_ACCURACY_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,

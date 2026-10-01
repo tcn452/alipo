@@ -10,6 +10,7 @@ export function createSupabaseAdminClient() {
 
   return createClient(url, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) },
   });
 }
 

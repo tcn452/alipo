@@ -2,17 +2,21 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { CheckCircle2, LocateFixed, MapPin } from 'lucide-react';
 import { Header } from '@/components/Header';
-import { queryGeolocationPermission, requestCurrentPosition } from '@/lib/geolocation';
+import { requestCurrentPosition } from '@/lib/geolocation';
 import { useLanguage } from '@/lib/i18n';
 import { LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY } from '@/lib/constants';
 
 type CapturedLocation = { latitude: number; longitude: number; accuracy: number };
+const StationPinPicker = dynamic(() => import('@/components/map/StationPinPicker').then((module) => module.StationPinPicker), { ssr: false });
 
 export default function AddStationPage() {
   const { t } = useLanguage();
   const [location, setLocation] = useState<CapturedLocation | null>(null);
+  const [locationMode, setLocationMode] = useState<'address' | 'gps'>('address');
+  const [pin, setPin] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -45,32 +49,28 @@ export default function AddStationPage() {
       window.location.replace('/');
       return;
     }
-    let cancelled = false;
-    void (async () => {
-      const permission = await queryGeolocationPermission();
-      if (cancelled || permission !== 'granted') return;
-      captureLocation();
-    })();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!location) return setError(t('Capture your live location while at the station.'));
+    const chosenLocation = locationMode === 'address' ? pin : location;
+    if (!chosenLocation) return setError(t('Choose the station location first.'));
     setSubmitting(true);
     setError('');
     const values = Object.fromEntries(new FormData(event.currentTarget));
+    try {
     const response = await fetch('/api/stations/community', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...values, ...location }),
+      body: JSON.stringify({ ...values, ...chosenLocation, location_mode: locationMode }),
     });
     const result = (await response.json()) as { error?: string };
     setSubmitting(false);
     if (!response.ok) return setError(t(result.error || 'Unable to add this station.'));
     setDone(true);
+    } catch {
+      setError(t('Unable to add this station. Please try again.'));
+    } finally { setSubmitting(false); }
   };
 
   return (
@@ -84,7 +84,7 @@ export default function AddStationPage() {
           <h1 className="mt-3 text-3xl font-black text-gray-950">{t('Add a filling station')}</h1>
           <p className="mt-2 text-sm leading-6 text-gray-600">
             {t(
-              'Only submit while you are physically at the filling station. Alipo will use your live phone location as the station pin, so do not submit from home or from another place.',
+              'Add a missing station from home using its address and a map pin, or use your phone location while at the station. The location stays unconfirmed until other visitors confirm it.',
             )}
           </p>
         </div>
@@ -93,6 +93,7 @@ export default function AddStationPage() {
             <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-700" />
             <h2 className="mt-3 text-xl font-black">{t('Station added')}</h2>
             <p className="mt-2 text-sm text-gray-600">{t('Thank you for helping improve Malawi’s community fuel map.')}</p>
+            <p className="mt-2 text-sm font-bold text-amber-800">{t('Unconfirmed location — other visitors can confirm it when they arrive.')}</p>
             <Link href="/" className="mt-5 inline-flex h-11 items-center bg-emerald-800 px-5 text-sm font-black text-white">
               {t('Return to map')}
             </Link>
@@ -124,6 +125,22 @@ export default function AddStationPage() {
               <input required name="phone" inputMode="tel" autoComplete="tel" className="mt-2 h-12 w-full rounded-xl border border-gray-300 px-3" placeholder="+265…" />
               <span className="mt-1 block text-xs font-normal text-gray-500">{t('Converted to a private fingerprint before storage.')}</span>
             </label>
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-bold">{t('Station location')}</legend>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <label><input type="radio" checked={locationMode === 'address'} onChange={() => setLocationMode('address')} /> {t('Enter address from home')}</label>
+                <label><input type="radio" checked={locationMode === 'gps'} onChange={() => setLocationMode('gps')} /> {t('I am at the station')}</label>
+              </div>
+              {locationMode === 'address' ? <div className="space-y-3">
+                <label className="block text-sm font-bold">{t('Address or nearby landmarks')}<textarea required name="address" minLength={5} maxLength={500} className="mt-2 w-full rounded-xl border border-gray-300 p-3" placeholder={t('Road, area, town and a nearby landmark')} /></label>
+                <p className="text-sm text-gray-600">{t('Zoom in and tap the station’s location on the map. Do not select your home location.')}</p>
+                <StationPinPicker onPick={(latitude, longitude) => setPin({ latitude, longitude })} />
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-xs font-bold">{t('Latitude')}<input type="number" step="any" min={-17.2} max={-9.2} required value={pin?.latitude ?? ''} onChange={(event) => setPin({ latitude: Number(event.target.value), longitude: pin?.longitude ?? 33.78 })} className="mt-1 w-full rounded-lg border p-2" /></label>
+                  <label className="text-xs font-bold">{t('Longitude')}<input type="number" step="any" min={32.6} max={35.95} required value={pin?.longitude ?? ''} onChange={(event) => setPin({ latitude: pin?.latitude ?? -13.96, longitude: Number(event.target.value) })} className="mt-1 w-full rounded-lg border p-2" /></label>
+                </div>
+                <p className="text-xs font-bold text-amber-800">{t('Unconfirmed location — other visitors can confirm it when they arrive.')}</p>
+              </div> : <>
             <button
               type="button"
               onPointerUp={(event) => {
@@ -148,12 +165,14 @@ export default function AddStationPage() {
                 {t('Tap Use my location to see the closest stations. Your browser will ask for permission.')}
               </p>
             )}
+              </>}
+            </fieldset>
             {error ? (
               <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
                 {error}
               </p>
             ) : null}
-            <button disabled={!location || submitting} className="h-12 w-full rounded-xl bg-gray-950 text-sm font-black text-white disabled:opacity-40">
+            <button disabled={!(locationMode === 'address' ? pin : location) || submitting} className="h-12 w-full rounded-xl bg-gray-950 text-sm font-black text-white disabled:opacity-40">
               {t(submitting ? 'Adding station…' : 'Add this station')}
             </button>
           </form>

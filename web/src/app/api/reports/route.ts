@@ -78,9 +78,9 @@ export async function POST(request: Request) {
   }
 
   const phone = body.phone?.trim();
-  const hashSalt = process.env.REPORTER_HASH_SALT;
+  const hashSalt = process.env.REPORTER_HASH_SALT || process.env.SUPABASE_SECRET_KEY;
   const reporterPhoneHash = phone && hashSalt
-    ? createHash('sha256').update(`${hashSalt}:${phone}`).digest('hex')
+    ? createHash('sha256').update(`${hashSalt}:${phone.replace(/\D/g, '')}`).digest('hex')
     : null;
   if (reportType === 'name_suggestion') {
     const suggestedName = body.suggested_name?.trim().replace(/\s+/g, ' ');

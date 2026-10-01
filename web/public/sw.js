@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alipo-shell-v4';
+const CACHE_NAME = 'alipo-shell-v5';
 const APP_SHELL = ['/', '/manifest.json', '/favicon.png', '/icon-192.png', '/icon-512.png'];
 const LAUNCH_TIMESTAMP = 1790805600000; // 2026-10-01T00:00:00+02:00 (CAT)
 
@@ -61,7 +61,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    event.respondWith(fetch(event.request, { cache: 'no-store' }));
     return;
   }
 

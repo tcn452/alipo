@@ -22,5 +22,5 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     ...report,
     is_stale: new Date(report.created_at).getTime() <= staleBefore,
   }));
-  return Response.json({ reports }, { headers: { 'Cache-Control': 'private, max-age=30' } });
+  return Response.json({ reports }, { headers: { 'Cache-Control': 'no-store' } });
 }

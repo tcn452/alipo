@@ -6,6 +6,7 @@ import { classifyStationBrand, getBrandColor, getStationStockStatus, QUEUE_LABEL
 import { Station, StationReportHistoryItem } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
+import { LocationVote } from '@/components/LocationVote';
 
 interface StationCardProps { station: Station; stationNumber: number; onReportClick: (station: Station) => void; onViewMap: (station: Station) => void; onSelectStation?: (station: Station) => void; onDataChanged?: () => void; isSelected?: boolean; }
 
@@ -28,17 +29,9 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
   });
 
   const confirmFuel = async (fuel: 'petrol' | 'diesel') => {
-    setConfirmingFuel(fuel); setActionMessage('');
-    try {
-      let token = localStorage.getItem('alipo-device-token');
-      if (!token) { token = crypto.randomUUID(); localStorage.setItem('alipo-device-token', token); }
-      const response = await fetch(`/api/stations/${encodeURIComponent(station.id)}/confirm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fuel_type: fuel, device_token: token }) });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error || 'Unable to confirm this report.');
-      setActionMessage(t('Report confirmed. Thank you.'));
-      onDataChanged?.();
-    } catch (error) { setActionMessage(error instanceof Error ? error.message : t('Unable to confirm this report.')); }
-    finally { setConfirmingFuel(null); }
+    // A confirmation is a fresh phone-identified report, not an anonymous click.
+    onReportClick({ ...station, fuel_types: [fuel] });
+    setConfirmingFuel(null);
   };
 
   const toggleWatch = async () => {
@@ -55,11 +48,11 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
   const toggleHistory = async () => {
     const opening = !historyOpen;
     setHistoryOpen(opening);
-    if (!opening || history !== null || historyLoading) return;
+    if (!opening || historyLoading) return;
     setHistoryLoading(true);
     setHistoryError(false);
     try {
-      const response = await fetch(`/api/stations/${encodeURIComponent(station.id)}/reports`);
+      const response = await fetch(`/api/stations/${encodeURIComponent(station.id)}/reports`, { cache: 'no-store' });
       if (!response.ok) throw new Error('History unavailable');
       const result = await response.json() as { reports?: StationReportHistoryItem[] };
       setHistory(result.reports || []);
@@ -77,8 +70,9 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
         <div className="flex shrink-0 flex-col items-end gap-1">{status ? <span className={`border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${status.color}`}>{t(status.label)}</span> : null}{station.is_stale ? <span className="bg-[#f3ece8] px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#795548]">{t('Stale')}</span> : null}</div>
       </div>
 
+      {station.needs_location_confirmation ? <LocationVote stationId={station.id} onConfirmed={onDataChanged} /> : null}
       <div className="mt-4 grid grid-cols-2 gap-3 border-y border-line py-3 text-xs">
-        <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Fuel availability')}</span><div className="mt-1.5 space-y-2">{(['petrol', 'diesel'] as const).map((fuel) => { const fuelStatus = station[`${fuel}_status`] || 'unknown'; const fuelIsStale = station[`${fuel}_is_stale`]; const config = STATUS_CONFIG[fuelStatus] || STATUS_CONFIG.unknown; const confidence = station[`${fuel}_confidence`] || 0; const confirmations = station[`${fuel}_confirmations`] || 0; return <div key={fuel}><div className="flex items-center justify-between gap-2"><strong>{t(fuel === 'petrol' ? 'Petrol' : 'Diesel')}</strong><span className="flex items-center gap-1"><span className={`border px-1.5 py-0.5 text-[9px] font-black uppercase ${config.color}`}>{t(config.label)}</span>{fuelIsStale ? <span className="bg-[#f3ece8] px-1.5 py-0.5 text-[9px] font-black uppercase text-[#795548]">{t('Stale')}</span> : null}</span></div><div className="mt-0.5 flex items-center justify-end text-[9px] text-muted"><span className="inline-flex items-center gap-0.5"><BadgeCheck className="h-3 w-3" />{confidence >= .8 ? t('High confidence') : confidence >= .6 ? t('Medium confidence') : t('Unconfirmed')} · {confirmations}</span></div>{fuelStatus !== 'unknown' && !fuelIsStale ? <button type="button" disabled={confirmingFuel !== null} onClick={(event) => { event.stopPropagation(); void confirmFuel(fuel); }} className="mt-1 inline-flex min-h-7 items-center gap-1 text-[10px] font-black text-forest disabled:opacity-50"><Check className="h-3 w-3" />{t(confirmingFuel === fuel ? 'Confirming…' : 'Still correct')}</button> : null}</div>; })}</div></div>
+        <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Fuel availability')}</span><div className="mt-1.5 space-y-2">{(['petrol', 'diesel'] as const).map((fuel) => { const fuelStatus = station[`${fuel}_status`] || 'unknown'; const fuelIsStale = station[`${fuel}_is_stale`]; const config = STATUS_CONFIG[fuelStatus] || STATUS_CONFIG.unknown; const confirmations = station[`${fuel}_confirmations`] || 0; const reportCount = station[`${fuel}_reports`] || 0; return <div key={fuel}><div className="flex items-center justify-between gap-2"><strong>{t(fuel === 'petrol' ? 'Petrol' : 'Diesel')}</strong><span className="flex items-center gap-1"><span className={`border px-1.5 py-0.5 text-[9px] font-black uppercase ${config.color}`}>{t(config.label)}</span>{fuelIsStale ? <span className="bg-[#f3ece8] px-1.5 py-0.5 text-[9px] font-black uppercase text-[#795548]">{t('Stale')}</span> : null}</span></div><div className="mt-0.5 flex items-center justify-end text-[9px] text-muted"><span className="inline-flex items-center gap-0.5"><BadgeCheck className="h-3 w-3" />{confirmations >= 2 ? t('Confirmed by community') : t('Community reports')} · {t('{count} reports', { count: reportCount })}{confirmations > 0 ? ` · ${t('{count} people reported', { count: confirmations })}` : ''}</span></div>{fuelStatus !== 'unknown' && !fuelIsStale ? <button type="button" disabled={confirmingFuel !== null} onClick={(event) => { event.stopPropagation(); void confirmFuel(fuel); }} className="mt-1 inline-flex min-h-7 items-center gap-1 text-[10px] font-black text-forest disabled:opacity-50"><Check className="h-3 w-3" />{t(confirmingFuel === fuel ? 'Confirming…' : 'Still correct')}</button> : null}</div>; })}</div></div>
         <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Queue')}</span><strong className="mt-0.5 flex items-center gap-1"><Clock3 className="h-3 w-3" /> {queue?.duration ? t(queue.duration) : t('Unknown')}</strong></div>
       </div>
 
