@@ -4,6 +4,19 @@ export type GeolocationPermissionState = 'granted' | 'prompt' | 'denied' | 'unkn
 
 export type LocationRequestErrorCode = 'denied' | 'unavailable' | 'timeout' | 'unsupported';
 export const LOCATION_CONSENT_KEY = 'alipo-location-previously-allowed-v1';
+export const LOCATION_PREFERENCES_KEY = 'alipo-location-preferences-v1';
+export function parseLocationPreferences(raw: string | null): { city: string; radius: number } | null {
+  try {
+    const value = JSON.parse(raw || 'null');
+    if (!value || !['My Location', 'All Cities', 'Lilongwe', 'Blantyre', 'Mzuzu', 'Zomba', 'Kasungu', 'Mangochi', 'Salima'].includes(value.city)
+      || ![5, 10, 20, 50].includes(value.radius)) return null;
+    return { city: value.city, radius: value.radius };
+  } catch { return null; }
+}
+
+function rememberLocationAllowed() {
+  try { localStorage.setItem(LOCATION_CONSENT_KEY, 'true'); } catch { /* Storage may be unavailable. */ }
+}
 export function shouldResumeLocation(permission: GeolocationPermissionState, previouslyAllowed: boolean): boolean {
   return permission === 'granted' || (permission === 'unknown' && previouslyAllowed);
 }
@@ -128,9 +141,10 @@ export function requestCurrentPosition(
   // returns denied/timeout without showing a prompt when Location services are restricted.
   const primary = isSamsungInternet() ? LOW_ACCURACY_OPTIONS : HIGH_ACCURACY_OPTIONS;
   const fallback = isSamsungInternet() ? HIGH_ACCURACY_OPTIONS : LOW_ACCURACY_OPTIONS;
+  const success = (position: GeolocationPosition) => { rememberLocationAllowed(); onSuccess(position); };
 
   navigator.geolocation.getCurrentPosition(
-    onSuccess,
+    success,
     (firstError) => {
       const firstCode = mapPositionError(firstError);
       if (firstCode === 'denied' || firstCode === 'unsupported') {
@@ -138,7 +152,7 @@ export function requestCurrentPosition(
         return;
       }
       navigator.geolocation.getCurrentPosition(
-        onSuccess,
+        success,
         (secondError) => onError(mapPositionError(secondError)),
         fallback,
       );
@@ -156,7 +170,7 @@ export function watchUserPosition(
     : { enableHighAccuracy: true, timeout: 20_000, maximumAge: 30_000 };
 
   return navigator.geolocation.watchPosition(
-    onPosition,
+    (position) => { rememberLocationAllowed(); onPosition(position); },
     (error) => onError(mapPositionError(error)),
     options,
   );

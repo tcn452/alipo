@@ -5,6 +5,15 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 export type Language = 'en' | 'ny';
 
 const CHICHEWA: Record<string, string> = {
+  'Find address on map': 'Pezani adilesi pamapu',
+  'Searching addresses…': 'Tikufufuza ma adilesi…',
+  'Search uses your address and town to find places in Malawi. Choose a match, then check the pin marks the actual station.': 'Timagwiritsa ntchito adilesi ndi tawuni kuti tipeze malo ku Malawi. Sankhani malo oyenera, kenako onetsetsani kuti chizindikiro chili pa siteshoni yeniyeni.',
+  'Choose a matching place': 'Sankhani malo oyenera',
+  'No matching address found. Try a road or landmark with the town, or place the pin manually.': 'Adilesi sinapezeke. Yesani msewu kapena malo odziwika ndi tawuni, kapena ikani chizindikiro pamapu nokha.',
+  'Address search is unavailable. Please place the pin on the map instead.': 'Kufufuza adilesi sikukupezeka. Chonde ikani chizindikiro pamapu nokha.',
+  'Address located. Check and adjust the pin to the actual station before adding it.': 'Adilesi yapezeka. Onani ndi kusuntha chizindikiro ku siteshoni yeniyeni musanayionjezere.',
+  'Address search by Photon · OpenStreetMap contributors': 'Kufufuza adilesi ndi Photon · Othandizira OpenStreetMap',
+  'You can also drag the pin to adjust it.': 'Mungakokenso chizindikiro kuti muchisinthe.',
   'Service announcement': 'Chidziwitso cha ntchito',
   'Dismiss announcement': 'Tsekani chidziwitso',
   'Unconfirmed location': 'Malo sanatsimikizidwe',

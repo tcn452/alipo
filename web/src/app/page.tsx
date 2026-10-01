@@ -9,7 +9,7 @@ import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
 import { SponsorBanner } from '@/components/SponsorBanner';
 import { CITY_CENTERS, DEFAULT_CITY, classifyStationBrand, getStationStockStatus, STATION_STOCK_CONFIG, LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY } from '@/lib/constants';
-import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition, isStandalonePwa, subscribeGeolocationPermissionChange, LOCATION_CONSENT_KEY, shouldResumeLocation } from '@/lib/geolocation';
+import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition, isStandalonePwa, subscribeGeolocationPermissionChange, LOCATION_CONSENT_KEY, shouldResumeLocation, LOCATION_PREFERENCES_KEY, parseLocationPreferences } from '@/lib/geolocation';
 import { Station } from '@/types/alipo';
 import { trackCacheResponse } from '@/lib/gtag';
 import { TimeAgo } from '@/components/TimeAgo';
@@ -136,6 +136,7 @@ export default function HomePage() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [locationState, setLocationState] = useState<'idle' | 'locating' | 'active' | 'outside' | 'error' | 'denied'>('idle');
+  const [locationPreferencesLoaded, setLocationPreferencesLoaded] = useState(false);
   const [isLocationHelpOpen, setIsLocationHelpOpen] = useState(false);
   const [dismissedArrivalStationId, setDismissedArrivalStationId] = useState<string | null>(null);
   const [stationAlertsEnabled, setStationAlertsEnabled] = useState(false);
@@ -149,7 +150,30 @@ export default function HomePage() {
   const followLocationRef = useRef(false);
   const lastTrackedLocationRef = useRef<[number, number] | null>(null);
   const lastLocationRequestAtRef = useRef(0);
+  const locationRequestRef = useRef(0);
+  const locationRequestPendingRef = useRef(false);
+  const lastLocationSuccessRef = useRef(0);
   const watchedStatusRef = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    try {
+      const saved = parseLocationPreferences(localStorage.getItem(LOCATION_PREFERENCES_KEY));
+      if (saved) {
+        setSelectedCity(saved.city);
+        setRadiusKm(saved.radius);
+        followLocationRef.current = saved.city === 'My Location';
+      } else {
+        followLocationRef.current = localStorage.getItem(LOCATION_CONSENT_KEY) === 'true';
+      }
+    } catch { /* Keep the app usable without persistent storage. */ }
+    setLocationPreferencesLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!locationPreferencesLoaded) return;
+    try { localStorage.setItem(LOCATION_PREFERENCES_KEY, JSON.stringify({ city: selectedCity, radius: radiusKm })); }
+    catch { /* Storage is optional. Never persist precise GPS coordinates. */ }
+  }, [locationPreferencesLoaded, selectedCity, radiusKm]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -214,6 +238,7 @@ export default function HomePage() {
   }, [radiusKm, selectedCity, userLocation]);
 
   const applyPosition = useCallback((coords: GeolocationCoordinates) => {
+    lastLocationSuccessRef.current = Date.now();
     try { localStorage.setItem(LOCATION_CONSENT_KEY, 'true'); } catch { /* Permission is still usable without storage. */ }
     if (!isInMalawi(coords.latitude, coords.longitude)) {
       if (locationWatchRef.current !== null) {
@@ -222,6 +247,7 @@ export default function HomePage() {
       }
       setUserLocation(null);
       setLocationAccuracy(null);
+      lastTrackedLocationRef.current = null;
       setSelectedCity((current) => (current === 'My Location' ? 'All Cities' : current));
       setLocationState('outside');
       return;
@@ -235,6 +261,7 @@ export default function HomePage() {
     }
     if (followLocationRef.current) setSelectedCity('My Location');
     setLocationState('active');
+    setIsLocationHelpOpen(false);
   }, []);
 
   const startLocationWatch = useCallback(() => {
@@ -243,26 +270,36 @@ export default function HomePage() {
       ({ coords }) => applyPosition(coords),
       (code) => {
         setLocationState(code === 'denied' ? 'denied' : 'error');
-        if (code === 'denied') setIsLocationHelpOpen(true);
+        if (code === 'denied') {
+          if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+          locationWatchRef.current = null;
+          lastTrackedLocationRef.current = null;
+          setUserLocation(null);
+          setLocationAccuracy(null);
+          setIsLocationHelpOpen(true);
+        }
       },
     );
   }, [applyPosition]);
 
-  const activateLocation = useCallback(() => {
-    followLocationRef.current = true;
+  const startLocation = useCallback((follow: boolean) => {
+    followLocationRef.current = follow;
     if (!navigator.geolocation) {
       setLocationState('error');
       return;
     }
     const now = Date.now();
-    if (now - lastLocationRequestAtRef.current < 700) return;
+    if (locationRequestPendingRef.current || now - lastLocationRequestAtRef.current < 700) return;
     lastLocationRequestAtRef.current = now;
+    locationRequestPendingRef.current = true;
+    const requestId = ++locationRequestRef.current;
 
     const standalone = isStandalonePwa();
     // In an installed PWA, Android often never shows a web prompt once Location was
     // denied (or never granted) at the app-permission level. Surface help if already denied.
     if (standalone) {
       void queryGeolocationPermission().then((permission) => {
+        if (requestId !== locationRequestRef.current) return;
         if (permission === 'denied') {
           setLocationState('denied');
           setIsLocationHelpOpen(true);
@@ -274,16 +311,27 @@ export default function HomePage() {
     // associates the request with the active user gesture.
     requestCurrentPosition(
       (position) => {
+        if (requestId !== locationRequestRef.current) return;
+        locationRequestPendingRef.current = false;
         applyPosition(position.coords);
-        startLocationWatch();
+        if (isInMalawi(position.coords.latitude, position.coords.longitude)) startLocationWatch();
       },
       (code) => {
+        if (requestId !== locationRequestRef.current) return;
+        locationRequestPendingRef.current = false;
         setLocationState(code === 'denied' ? 'denied' : 'error');
-        if (code === 'denied') setIsLocationHelpOpen(true);
+        if (code === 'denied') {
+          lastTrackedLocationRef.current = null;
+          setUserLocation(null);
+          setLocationAccuracy(null);
+          setIsLocationHelpOpen(true);
+        }
       },
     );
     setLocationState('locating');
   }, [applyPosition, startLocationWatch]);
+  const activateLocation = useCallback(() => startLocation(true), [startLocation]);
+  const resumeLocation = useCallback(() => startLocation(followLocationRef.current), [startLocation]);
 
   useEffect(() => {
     try {
@@ -309,55 +357,71 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => () => {
+    locationRequestRef.current += 1;
+    locationRequestPendingRef.current = false;
     if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
   }, []);
 
   // Only auto-start when permission is already granted. Samsung Internet (and others)
   // suppress the permission prompt unless location is requested from a user tap.
   useEffect(() => {
-    if (!launchChecked || (isPrelaunch && !isBypassed)) return;
+    if (!locationPreferencesLoaded || !launchChecked || (isPrelaunch && !isBypassed)) return;
     let cancelled = false;
     void (async () => {
       const permission = await queryGeolocationPermission();
       let previouslyAllowed = false;
       try { previouslyAllowed = localStorage.getItem(LOCATION_CONSENT_KEY) === 'true'; } catch { /* Storage is optional. */ }
       if (cancelled || !shouldResumeLocation(permission, previouslyAllowed)) return;
-      activateLocation();
+      resumeLocation();
     })();
     return () => {
       cancelled = true;
     };
-  }, [activateLocation, isPrelaunch, isBypassed, launchChecked]);
+  }, [resumeLocation, locationPreferencesLoaded, isPrelaunch, isBypassed, launchChecked]);
 
   // If the user enables Location in Android settings and returns, retry automatically.
   useEffect(() => {
+    if (!locationPreferencesLoaded || !launchChecked || (isPrelaunch && !isBypassed)) return;
     const maybeRetry = () => {
       if (document.visibilityState !== 'visible') {
+        locationRequestRef.current += 1;
+        locationRequestPendingRef.current = false;
         if (locationWatchRef.current !== null) { navigator.geolocation.clearWatch(locationWatchRef.current); locationWatchRef.current = null; }
         return;
       }
       void queryGeolocationPermission().then((permission) => {
         let previouslyAllowed = false;
         try { previouslyAllowed = localStorage.getItem(LOCATION_CONSENT_KEY) === 'true'; } catch { /* Storage is optional. */ }
-        if (shouldResumeLocation(permission, previouslyAllowed)) activateLocation();
+        if (document.visibilityState === 'visible' && shouldResumeLocation(permission, previouslyAllowed)) resumeLocation();
       });
     };
     const unsubscribe = subscribeGeolocationPermissionChange((state) => {
-      if (state === 'granted') activateLocation();
+      if (state === 'granted' && document.visibilityState === 'visible') resumeLocation();
       if (state === 'denied') {
+        locationRequestRef.current += 1;
+        locationRequestPendingRef.current = false;
         if (locationWatchRef.current !== null) { navigator.geolocation.clearWatch(locationWatchRef.current); locationWatchRef.current = null; }
         setLocationState('denied');
+        lastTrackedLocationRef.current = null;
+        setUserLocation(null);
+        setLocationAccuracy(null);
         setIsLocationHelpOpen(true);
       }
     });
     document.addEventListener('visibilitychange', maybeRetry);
     window.addEventListener('focus', maybeRetry);
+    window.addEventListener('pageshow', maybeRetry);
+    const retryTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && Date.now() - lastLocationSuccessRef.current > 60_000) maybeRetry();
+    }, 30_000);
     return () => {
       unsubscribe();
       document.removeEventListener('visibilitychange', maybeRetry);
       window.removeEventListener('focus', maybeRetry);
+      window.removeEventListener('pageshow', maybeRetry);
+      window.clearInterval(retryTimer);
     };
-  }, [activateLocation]);
+  }, [resumeLocation, locationPreferencesLoaded, launchChecked, isPrelaunch, isBypassed]);
 
   useEffect(() => {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) {

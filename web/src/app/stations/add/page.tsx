@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { CheckCircle2, LocateFixed, MapPin } from 'lucide-react';
@@ -8,6 +8,7 @@ import { Header } from '@/components/Header';
 import { requestCurrentPosition } from '@/lib/geolocation';
 import { useLanguage } from '@/lib/i18n';
 import { LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY } from '@/lib/constants';
+import type { AddressMatch } from '@/lib/address-search';
 
 type CapturedLocation = { latitude: number; longitude: number; accuracy: number };
 const StationPinPicker = dynamic(() => import('@/components/map/StationPinPicker').then((module) => module.StationPinPicker), { ssr: false });
@@ -21,6 +22,47 @@ export default function AddStationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [matches, setMatches] = useState<AddressMatch[]>([]);
+  const [searchMessage, setSearchMessage] = useState('');
+  const searchRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => () => searchRequest.current?.abort(), []);
+
+  const resetAddressSearch = () => {
+    searchRequest.current?.abort();
+    searchRequest.current = null;
+    setSearching(false);
+    setMatches([]);
+    setSearchMessage('');
+    setPin(null);
+  };
+
+  const findAddress = async () => {
+    searchRequest.current?.abort();
+    const controller = new AbortController();
+    searchRequest.current = controller;
+    setSearching(true);
+    setMatches([]);
+    setSearchMessage('');
+    try {
+      const response = await fetch('/api/address-search', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, city }), signal: controller.signal,
+      });
+      const result = await response.json() as { matches?: AddressMatch[]; error?: string };
+      if (!response.ok) throw new Error(result.error);
+      if (controller.signal.aborted) return;
+      setMatches(result.matches || []);
+      if (!result.matches?.length) setSearchMessage('No matching address found. Try a road or landmark with the town, or place the pin manually.');
+    } catch {
+      if (!controller.signal.aborted) setSearchMessage('Address search is unavailable. Please place the pin on the map instead.');
+    } finally {
+      if (searchRequest.current === controller) setSearching(false);
+    }
+  };
 
   const captureLocation = () => {
     setError('');
@@ -117,7 +159,7 @@ export default function AddStationPage() {
               </label>
               <label className="block text-sm font-bold">
                 {t('Town or city')}
-                <input name="city" className="mt-2 h-12 w-full rounded-xl border border-gray-300 px-3" placeholder="Lilongwe" />
+                <input name="city" maxLength={100} value={city} onChange={(event) => { setCity(event.target.value); resetAddressSearch(); }} className="mt-2 h-12 w-full rounded-xl border border-gray-300 px-3" placeholder="Lilongwe" />
               </label>
             </div>
             <label className="block text-sm font-bold">
@@ -132,9 +174,16 @@ export default function AddStationPage() {
                 <label><input type="radio" checked={locationMode === 'gps'} onChange={() => setLocationMode('gps')} /> {t('I am at the station')}</label>
               </div>
               {locationMode === 'address' ? <div className="space-y-3">
-                <label className="block text-sm font-bold">{t('Address or nearby landmarks')}<textarea required name="address" minLength={5} maxLength={500} className="mt-2 w-full rounded-xl border border-gray-300 p-3" placeholder={t('Road, area, town and a nearby landmark')} /></label>
-                <p className="text-sm text-gray-600">{t('Zoom in and tap the station’s location on the map. Do not select your home location.')}</p>
-                <StationPinPicker onPick={(latitude, longitude) => setPin({ latitude, longitude })} />
+                <label className="block text-sm font-bold">{t('Address or nearby landmarks')}<textarea required name="address" minLength={5} maxLength={500} value={address} onChange={(event) => { setAddress(event.target.value); resetAddressSearch(); }} className="mt-2 w-full rounded-xl border border-gray-300 p-3" placeholder={t('Road, area, town and a nearby landmark')} /></label>
+                <button type="button" onClick={() => void findAddress()} disabled={searching || address.trim().length < 3} className="min-h-12 w-full rounded-xl border-2 border-emerald-700 px-4 text-sm font-black text-emerald-800 disabled:opacity-40">{t(searching ? 'Searching addresses…' : 'Find address on map')}</button>
+                <p className="text-xs text-gray-600">{t('Search uses your address and town to find places in Malawi. Choose a match, then check the pin marks the actual station.')}</p>
+                <div aria-live="polite">
+                  {searchMessage ? <p className="text-sm font-bold text-amber-800">{t(searchMessage)}</p> : null}
+                  {matches.length > 0 ? <div className="space-y-2"><p className="text-sm font-bold">{t('Choose a matching place')}</p>{matches.map((match) => <button type="button" key={match.id} onClick={() => { setPin({ latitude: match.latitude, longitude: match.longitude }); setMatches([]); setSearchMessage('Address located. Check and adjust the pin to the actual station before adding it.'); }} className="min-h-12 w-full rounded-xl border border-gray-200 p-3 text-left text-sm hover:border-emerald-700">{match.label}</button>)}</div> : null}
+                </div>
+                <p className="text-xs text-gray-500">{t('Address search by Photon · OpenStreetMap contributors')}</p>
+                <p className="text-sm text-gray-600">{t('Zoom in and tap the station’s location on the map. Do not select your home location.')} {t('You can also drag the pin to adjust it.')}</p>
+                <StationPinPicker position={pin} onPick={(latitude, longitude) => setPin({ latitude, longitude })} />
                 <div className="grid grid-cols-2 gap-3">
                   <label className="text-xs font-bold">{t('Latitude')}<input type="number" step="any" min={-17.2} max={-9.2} required value={pin?.latitude ?? ''} onChange={(event) => setPin({ latitude: Number(event.target.value), longitude: pin?.longitude ?? 33.78 })} className="mt-1 w-full rounded-lg border p-2" /></label>
                   <label className="text-xs font-bold">{t('Longitude')}<input type="number" step="any" min={32.6} max={35.95} required value={pin?.longitude ?? ''} onChange={(event) => setPin({ latitude: pin?.latitude ?? -13.96, longitude: Number(event.target.value) })} className="mt-1 w-full rounded-lg border p-2" /></label>
