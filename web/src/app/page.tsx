@@ -67,7 +67,7 @@ type StationStatus = Pick<Station,
 > & { updated_at?: string };
 
 async function fetchCachedJson<T>(route: string): Promise<T> {
-  const response = await fetch(route);
+  const response = await fetch(route, { cache: 'no-store' });
   trackCacheResponse(route, response);
   if (!response.ok) throw new Error(`${route} returned ${response.status}`);
   return response.json() as Promise<T>;

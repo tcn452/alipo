@@ -21,6 +21,7 @@ export function createSupabasePublicClient() {
 
   return createClient(url, publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) },
   });
 }
 

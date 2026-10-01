@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { classifyStationBrand } from '@/lib/constants';
-import { publicCdnCacheHeaders } from '@/lib/cache-headers';
 import { createSupabasePublicClient } from '@/lib/supabase-server';
 import { Station } from '@/types/alipo';
 
@@ -40,6 +39,6 @@ export async function GET() {
 
   return NextResponse.json(
     { stations, total: stations.length },
-    { headers: publicCdnCacheHeaders(21_600, 86_400) },
+    { headers: { 'Cache-Control': 'no-store', 'CDN-Cache-Control': 'no-store', 'Vercel-CDN-Cache-Control': 'no-store' } },
   );
 }

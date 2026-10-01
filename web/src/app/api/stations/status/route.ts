@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { publicCdnCacheHeaders } from '@/lib/cache-headers';
 import { createSupabasePublicClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +21,6 @@ export async function GET() {
 
   return NextResponse.json(
     { statuses: data || [], total: data?.length || 0 },
-    { headers: publicCdnCacheHeaders(30, 120) },
+    { headers: { 'Cache-Control': 'no-store', 'CDN-Cache-Control': 'no-store', 'Vercel-CDN-Cache-Control': 'no-store' } },
   );
 }
