@@ -1,5 +1,6 @@
 import { Sponsor } from '@/types/alipo';
 import { trackCacheResponse } from '@/lib/gtag';
+import { nextSponsor } from '@/lib/sponsor-rotation';
 
 export const FALLBACK_SPONSORS: Sponsor[] = [
   {
@@ -42,12 +43,11 @@ async function fetchSponsors() {
   return Array.isArray(payload.sponsors) ? payload.sponsors : [];
 }
 
-export async function getActiveSponsors(placement: 'in_feed' | 'post_report' | 'banner' | 'all' = 'all', city = 'all'): Promise<Sponsor[]> {
+export async function getActiveSponsors(placement: 'in_feed' | 'post_report' | 'banner' | 'all' = 'all', _city = 'all'): Promise<Sponsor[]> {
   if (cachedSponsors && Date.now() < cacheExpiresAt) {
     return cachedSponsors.filter((s) => {
       const matchesPlacement = placement === 'all' || s.placement === 'all' || s.placement === placement;
-      const matchesCity = city === 'all' || !s.city || s.city === 'all' || s.city.toLowerCase() === city.toLowerCase();
-      return matchesPlacement && matchesCity;
+      return matchesPlacement;
     });
   }
 
@@ -60,8 +60,7 @@ export async function getActiveSponsors(placement: 'in_feed' | 'post_report' | '
       cacheExpiresAt = Date.now() + SPONSOR_CACHE_TTL_MS;
       return sponsors.filter((s) => {
         const matchesPlacement = placement === 'all' || s.placement === 'all' || s.placement === placement;
-        const matchesCity = city === 'all' || !s.city || s.city === 'all' || s.city.toLowerCase() === city.toLowerCase();
-        return matchesPlacement && matchesCity;
+        return matchesPlacement;
       });
     }
   } catch {
@@ -70,7 +69,16 @@ export async function getActiveSponsors(placement: 'in_feed' | 'post_report' | '
 
   return FALLBACK_SPONSORS.filter((s) => {
     const matchesPlacement = placement === 'all' || s.placement === 'all' || s.placement === placement;
-    const matchesCity = city === 'all' || !s.city || s.city === 'all' || s.city.toLowerCase() === city.toLowerCase();
-    return matchesPlacement && matchesCity;
+    return matchesPlacement;
   });
+}
+
+let rotationOffset = 0;
+export function pickNextSponsor(sponsors: Sponsor[], slot: string): Sponsor | null {
+  const key = `alipo-sponsor-last-v1:${slot}`;
+  let previousId: string | null = null;
+  try { previousId = localStorage.getItem(key); } catch { /* Storage is optional. */ }
+  const picked = nextSponsor(sponsors, previousId, rotationOffset++);
+  if (picked) { try { localStorage.setItem(key, picked.id); } catch { /* Rotation still works in memory. */ } }
+  return picked;
 }

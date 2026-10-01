@@ -11,6 +11,8 @@ const CHICHEWA: Record<string, string> = {
   'Unconfirmed fuel report': 'Lipoti la mafuta silinatsimikizidwe',
   'Confirmed by community': 'Zatsimikizidwa ndi anthu',
   '{count} reports': 'Malipoti {count}',
+  '{count} report': 'Lipoti {count}',
+  '{count} person reported': 'Munthu {count} wapereka lipoti',
   'Add it from home with an address and map pin, or while at the pumps.': 'Onjezani muli kunyumba ndi adilesi ndi malo pamapu, kapena muli pa siteshoni.',
   '{count} people reported': 'Anthu {count} apereka malipoti',
   'Enter address from home': 'Lowetsani adilesi muli kunyumba',

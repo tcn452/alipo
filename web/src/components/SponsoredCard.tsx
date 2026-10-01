@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
 import { ArrowUpRight, Compass, Store, Sparkles } from 'lucide-react';
 import { Sponsor } from '@/types/alipo';
 import { useLanguage } from '@/lib/i18n';
-import { trackSponsorImpression, trackSponsorClick } from '@/lib/gtag';
+import { trackSponsorClick } from '@/lib/gtag';
 
 interface SponsoredCardProps {
   sponsor: Sponsor;
@@ -13,9 +12,6 @@ interface SponsoredCardProps {
 export function SponsoredCard({ sponsor }: SponsoredCardProps) {
   const { t } = useLanguage();
 
-  useEffect(() => {
-    trackSponsorImpression(sponsor, 'in_feed');
-  }, [sponsor.id]);
 
   return (
     <aside

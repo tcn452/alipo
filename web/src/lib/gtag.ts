@@ -2,6 +2,20 @@ export const GA_TRACKING_ID = 'G-9NR2XVH5WC';
 
 type GtagEventParams = Record<string, string | number | boolean | null | undefined>;
 
+export function trackFuelUpdate(stage: 'started' | 'submitted' | 'failed', details: {
+  station_id?: string; fuel_type?: string; fuel_status?: string; queue_estimate?: string; city?: string; response_status?: number;
+} = {}) {
+  // Explicit allowlist: never forward phone, coordinates, or API error text.
+  trackEvent(`fuel_update_${stage}`, {
+    station_id: details.station_id,
+    fuel_type: details.fuel_type,
+    fuel_status: details.fuel_status,
+    queue_estimate: details.queue_estimate,
+    city: details.city,
+    response_status: details.response_status,
+  });
+}
+
 declare global {
   interface Window {
     gtag?: (command: string, ...args: unknown[]) => void;

@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, MapPin, Store, Sparkles } from 'lucide-react';
 import { Sponsor } from '@/types/alipo';
-import { FALLBACK_SPONSORS, getActiveSponsors } from '@/lib/sponsors';
+import { getActiveSponsors, pickNextSponsor } from '@/lib/sponsors';
+import { nextSponsor } from '@/lib/sponsor-rotation';
 import { useLanguage } from '@/lib/i18n';
 import { trackSponsorImpression, trackSponsorClick } from '@/lib/gtag';
 import { SponsoredCard } from './SponsoredCard';
@@ -12,25 +13,59 @@ interface SponsorBannerProps {
   placement?: 'in_feed' | 'post_report' | 'banner' | 'all';
   city?: string;
   className?: string;
+  slotId?: string;
 }
 
-export function SponsorBanner({ placement = 'all', city = 'all', className = '' }: SponsorBannerProps) {
-  const { t } = useLanguage();
-  const [sponsor, setSponsor] = useState<Sponsor>(FALLBACK_SPONSORS[0]);
+export function SponsorBanner({ placement = 'all', city = 'all', className = '', slotId = 'default' }: SponsorBannerProps) {
+  const [sponsor, setSponsor] = useState<Sponsor | null>(null);
+  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
+  const [visible, setVisible] = useState(false);
+  const container = useRef<HTMLDivElement>(null);
+  const slot = `${placement}:${slotId}`;
 
   useEffect(() => {
     let isMounted = true;
     void getActiveSponsors(placement, city).then((sponsors) => {
       if (isMounted && sponsors.length > 0) {
-        const picked = sponsors[Math.floor(Math.random() * sponsors.length)];
-        setSponsor(picked);
-        trackSponsorImpression(picked, placement);
+        setSponsors(sponsors);
+        setSponsor(pickNextSponsor(sponsors, slot));
       }
     });
     return () => {
       isMounted = false;
     };
-  }, [placement, city]);
+  }, [placement, city, slot]);
+
+  useEffect(() => {
+    if (!container.current) return;
+    if (!('IntersectionObserver' in window)) { setVisible(true); return; }
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.5 });
+    observer.observe(container.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!visible || sponsors.length < 2) return;
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      setSponsor((current) => {
+        const picked = nextSponsor(sponsors, current?.id || null);
+        if (picked) { try { localStorage.setItem(`alipo-sponsor-last-v1:${slot}`, picked.id); } catch { /* Storage is optional. */ } }
+        return picked;
+      });
+    }, 15_000);
+    return () => window.clearInterval(interval);
+  }, [visible, sponsors, slot]);
+
+  useEffect(() => {
+    if (visible && sponsor && document.visibilityState === 'visible') trackSponsorImpression(sponsor, placement);
+  }, [visible, sponsor, placement]);
+
+  return <div ref={container} className="min-h-[72px]">{sponsor ? <SponsorContent sponsor={sponsor} placement={placement} className={className} /> : null}</div>;
+}
+
+function SponsorContent({ sponsor, placement, className }: { sponsor: Sponsor; placement: NonNullable<SponsorBannerProps['placement']>; className: string }) {
+  const { t } = useLanguage();
 
   // If in_feed placement, render the full feed card
   if (placement === 'in_feed') {

@@ -5,6 +5,7 @@ import { Check, CheckCircle2, CircleAlert, MapPinOff, PencilLine, Send, X, XCirc
 import { FuelStatus, FuelType, QueueEstimate, Station } from '@/types/alipo';
 import { useLanguage } from '@/lib/i18n';
 import { SponsorBanner } from '@/components/SponsorBanner';
+import { trackFuelUpdate } from '@/lib/gtag';
 
 interface ReportModalProps { isOpen: boolean; onClose: () => void; stations: Station[]; selectedStation?: Station | null; onReportSubmitted: () => void; }
 
@@ -27,6 +28,10 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('Your report helps keep Malawi moving.');
   const [errorMsg, setErrorMsg] = useState('');
+  useEffect(() => {
+    if (isOpen && reportType === 'fuel') trackFuelUpdate('started');
+    if (!isOpen) { setSuccess(false); setErrorMsg(''); }
+  }, [isOpen, reportType]);
 
   useEffect(() => { if (selectedStation) setStationId(selectedStation.id); else if (stations.length && !stationId) setStationId(stations[0].id); }, [selectedStation, stations, stationId]);
   const closeModal = () => {
@@ -40,6 +45,7 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
     event.preventDefault();
     if (!stationId) return setErrorMsg(t('Please select a station.'));
     setIsSubmitting(true); setErrorMsg('');
+    let responseStatus = 0;
     try {
       const station = stations.find((item) => item.id === stationId);
       if (!station) throw new Error(t('Please select a valid station.'));
@@ -49,13 +55,18 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
         body: JSON.stringify({ station, report_type: reportType, status, fuel_type: fuelType, queue_estimate: queueEstimate, phone: phone.trim() || undefined, suggested_name: suggestedName.trim() || undefined }),
       });
       const result = await response.json() as { error?: string; votes?: number; confirmed?: boolean };
+      responseStatus = response.status;
       if (!response.ok) throw new Error(t('Unable to submit this report.'));
       setSuccessMessage(reportType === 'name_suggestion'
         ? result.confirmed ? 'The station name is now confirmed and updated.' : 'Suggestion saved. One more matching vote will confirm this name.'
         : 'Your report helps keep Malawi moving.');
       setSuccess(true);
+      if (reportType === 'fuel') trackFuelUpdate('submitted', { station_id: station.id, city: station.city, fuel_type: fuelType, fuel_status: status, queue_estimate: queueEstimate, response_status: response.status });
       onReportSubmitted();
-    } catch (error) { setErrorMsg(error instanceof Error ? error.message : t('Unable to submit this report.')); } finally { setIsSubmitting(false); }
+    } catch (error) {
+      if (reportType === 'fuel') trackFuelUpdate('failed', { station_id: stationId, fuel_type: fuelType, fuel_status: status, response_status: responseStatus });
+      setErrorMsg(error instanceof Error ? error.message : t('Unable to submit this report.'));
+    } finally { setIsSubmitting(false); }
   };
 
   return <div id="report-fuel" className={`report-modal fixed inset-0 z-[2000] place-items-center overflow-y-auto bg-[#032e20]/75 p-3 backdrop-blur-sm ${isOpen ? 'report-modal-open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="report-title">
