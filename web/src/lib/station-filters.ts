@@ -27,7 +27,7 @@ export function matchesStationFilters(
   if (!fuels.length) return false;
   if (filters.status === 'all' && filters.freshness === 'all') return true;
 
-  return fuels.some((type) => {
+  const matchesFuel = (type: 'petrol' | 'diesel') => {
     const status = station[`${type}_status`];
     const reportedAt = station[`${type}_reported_at`];
     const timestamp = reportedAt ? Date.parse(reportedAt) : NaN;
@@ -41,5 +41,8 @@ export function matchesStationFilters(
     if (filters.freshness === 'recent') return recent;
     if (filters.freshness === 'older') return older;
     return true;
-  });
+  };
+  // "No fuel" across all fuels means all carried fuels are reported out.
+  // Available (even stale) or unknown fuel must not be treated as out of stock.
+  return filters.status === 'out' ? fuels.every(matchesFuel) : fuels.some(matchesFuel);
 }

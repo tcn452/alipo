@@ -45,3 +45,17 @@ test('fuel support and trimmed city/name search constrain results', () => {
   assert.equal(match({}, 'all', 'all', 'all', '  LILONGWE  '), true);
   assert.equal(match({}, 'all', 'all', 'all', 'Blantyre'), false);
 });
+test('Bwandiro: petrol out plus stale diesel available is not no fuel across all fuels', () => {
+  const bwandiro = { petrol_status: 'out', petrol_reported_at: recent, diesel_status: 'available', diesel_reported_at: older, diesel_is_stale: true };
+  assert.equal(match(bwandiro, 'all', 'out'), false);
+  assert.equal(match(bwandiro, 'petrol', 'out'), true);
+  assert.equal(match(bwandiro, 'diesel', 'out'), false);
+  assert.equal(match(bwandiro, 'all', 'has-fuel'), false);
+});
+test('no fuel requires all supported fuels out, not unknown or low supply', () => {
+  assert.equal(match({ petrol_status: 'out' }, 'all', 'out'), true);
+  assert.equal(match({ petrol_status: 'unknown' }, 'all', 'out'), false);
+  assert.equal(match({ petrol_status: 'low' }, 'all', 'out'), false);
+  assert.equal(match({ fuel_types: ['diesel'] }, 'all', 'out'), true);
+  assert.equal(match({ petrol_status: 'out', diesel_reported_at: older }, 'all', 'out', 'recent'), false);
+});
