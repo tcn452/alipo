@@ -25,8 +25,6 @@ const CHICHEWA: Record<string, string> = {
   'Address located. Check and adjust the pin to the actual station before adding it.': 'Adilesi yapezeka. Onani ndi kusuntha chizindikiro ku siteshoni yeniyeni musanayionjezere.',
   'Address search by Photon · OpenStreetMap contributors': 'Kufufuza adilesi ndi Photon · Othandizira OpenStreetMap',
   'You can also drag the pin to adjust it.': 'Mungakokenso chizindikiro kuti muchisinthe.',
-  'Service announcement': 'Chidziwitso cha ntchito',
-  'Dismiss announcement': 'Tsekani chidziwitso',
   'Unconfirmed location': 'Malo sanatsimikizidwe',
   'Unconfirmed fuel report': 'Lipoti la mafuta silinatsimikizidwe',
   'Confirmed by community': 'Zatsimikizidwa ndi anthu',

@@ -122,15 +122,6 @@ export default function HomePage() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   const [isNameSuggestionsOpen, setIsNameSuggestionsOpen] = useState(false);
-  const [announcementDismissed, setAnnouncementDismissed] = useState(true);
-  useEffect(() => {
-    try { setAnnouncementDismissed(localStorage.getItem('alipo-availability-announcement-20261001-dismissed') === 'true'); }
-    catch { setAnnouncementDismissed(false); }
-  }, []);
-  const dismissAnnouncement = () => {
-    setAnnouncementDismissed(true);
-    try { localStorage.setItem('alipo-availability-announcement-20261001-dismissed', 'true'); } catch { /* Still dismiss for this session. */ }
-  };
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isWhatsNewRequested, setIsWhatsNewRequested] = useState(false);
   const closeWhatsNew = useCallback(() => setIsWhatsNewRequested(false), []);
@@ -652,13 +643,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {!announcementDismissed ? <section aria-label={t('Service announcement')} className="border-y border-emerald-300 bg-emerald-50">
-          <div className="mx-auto flex max-w-[1440px] items-start gap-3 px-5 py-4 sm:px-8 lg:px-12">
-            <Info className="mt-0.5 h-5 w-5 shrink-0 text-emerald-800" />
-            <div className="flex-1"><h2 className="text-sm font-black text-emerald-950">Fuel availability updates are fixed / Zosintha za kupezeka kwa mafuta zakonzedwa</h2><p lang="en" className="mt-1 text-sm text-emerald-900">Petrol and diesel reports now show the latest fuel availability again. We apologise for the disruption. Refresh the page if you still see old results, and keep sharing updates to help other drivers.</p><p lang="ny" className="mt-2 text-sm text-emerald-900">Malipoti a petulo ndi dizilo tsopano akusonyezanso kupezeka kwa mafuta molondola. Tikupepesa chifukwa cha vuto limeneli. Ngati mukuonabe uthenga wakale, tsegulaninso tsambali. Pitirizani kutumiza malipoti kuti muthandize madalaivala ena.</p></div>
-            <button type="button" aria-label={t('Dismiss announcement')} onClick={dismissAnnouncement} className="grid min-h-10 min-w-10 place-items-center text-emerald-900"><XCircle className="h-5 w-5" /></button>
-          </div>
-        </section> : null}
         <StationFilters
           fuel={selectedFuel}
           onFuelChange={setSelectedFuel}
