@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alipo-shell-v5';
+const CACHE_NAME = 'alipo-shell-v6';
 const APP_SHELL = ['/', '/manifest.json', '/favicon.png', '/icon-192.png', '/icon-512.png'];
 const LAUNCH_TIMESTAMP = 1790805600000; // 2026-10-01T00:00:00+02:00 (CAT)
 
@@ -88,7 +88,9 @@ self.addEventListener('notificationclick', (event) => {
       const client = clients[0];
       if (client) {
         await client.focus();
-        if (stationId) {
+        if (event.notification.data?.url) {
+          await client.navigate(targetUrl);
+        } else if (stationId) {
           client.postMessage({ type: 'OPEN_STATION_REPORT', stationId });
         }
         return;
@@ -96,4 +98,18 @@ self.addEventListener('notificationclick', (event) => {
       await self.clients.openWindow(targetUrl);
     })
   );
+});
+
+self.addEventListener('push', (event) => {
+  let payload;
+  try { payload = event.data?.json(); } catch { return; }
+  if (!payload || typeof payload.title !== 'string') return;
+  const url = new URL(payload.url || '/', self.location.origin);
+  if (url.origin !== self.location.origin) return;
+  event.waitUntil(self.registration.showNotification(payload.title, {
+    body: payload.body,
+    icon: '/icon-192.png', badge: '/favicon.png',
+    tag: `fuel-available-${payload.stationId || 'saved'}`,
+    data: { stationId: payload.stationId, url: url.href },
+  }));
 });

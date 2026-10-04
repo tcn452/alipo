@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { trackFuelUpdate, trackEvent } from '@/lib/gtag';
 import { ArrowUpRight, BadgeCheck, Bell, BellOff, Check, ChevronDown, Clock3, MapPin, MapPinned, Navigation, RefreshCw } from 'lucide-react';
 import { classifyStationBrand, getBrandColor, getStationStockStatus, QUEUE_LABELS, STATION_STOCK_CONFIG, STATUS_CONFIG } from '@/lib/constants';
 import { Station, StationReportHistoryItem } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
 import { LocationVote } from '@/components/LocationVote';
+import { StationShare } from '@/components/StationShare';
+import { savedStationIds } from '@/lib/fuel-alerts';
 
 interface StationCardProps { station: Station; stationNumber: number; onReportClick: (station: Station) => void; onViewMap: (station: Station) => void; onSelectStation?: (station: Station) => void; onDataChanged?: () => void; isSelected?: boolean; }
 
@@ -23,25 +26,47 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
   const [historyError, setHistoryError] = useState(false);
   const [confirmingFuel, setConfirmingFuel] = useState<'petrol' | 'diesel' | null>(null);
   const [actionMessage, setActionMessage] = useState('');
-  const [watched, setWatched] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try { return (JSON.parse(localStorage.getItem('alipo-watched-stations') || '[]') as string[]).includes(station.id); } catch { return false; }
-  });
+  const submitting = useRef(false);
+  const [watched, setWatched] = useState(false);
+  useEffect(() => {
+    const refresh = () => setWatched(savedStationIds().includes(station.id));
+    refresh();
+    window.addEventListener('alipo-watch-changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => { window.removeEventListener('alipo-watch-changed', refresh); window.removeEventListener('storage', refresh); };
+  }, [station.id]);
 
-  const confirmFuel = async (fuel: 'petrol' | 'diesel') => {
-    // A confirmation is a fresh phone-identified report, not an anonymous click.
-    onReportClick({ ...station, fuel_types: [fuel] });
-    setConfirmingFuel(null);
+  const confirmFuel = async (fuel: 'petrol' | 'diesel', status: 'available' | 'out') => {
+    if (submitting.current) return;
+    submitting.current = true;
+    setConfirmingFuel(fuel);
+    setActionMessage('');
+    const details = { station_id: station.id, city: station.city, fuel_type: fuel, fuel_status: status, method: 'one_tap' as const };
+    trackFuelUpdate('started', details);
+    let responseStatus = 0;
+    try {
+      const response = await fetch('/api/reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station, status, fuel_type: fuel }) });
+      responseStatus = response.status;
+      if (!response.ok) throw new Error('Report unavailable');
+      trackFuelUpdate('completed', { ...details, response_status: response.status });
+      setActionMessage(t('Your fuel update was saved. Thank you.'));
+      setHistory(null);
+      onDataChanged?.();
+    } catch {
+      trackFuelUpdate('failed', { ...details, response_status: responseStatus });
+      setActionMessage(t('Unable to save your update. Please try again.'));
+    } finally { submitting.current = false; setConfirmingFuel(null); }
   };
 
   const toggleWatch = async () => {
     const next = !watched;
-    let watchedIds: string[] = [];
-    try { watchedIds = JSON.parse(localStorage.getItem('alipo-watched-stations') || '[]') as string[]; } catch { watchedIds = []; }
+    let watchedIds = savedStationIds();
+    if (next && watchedIds.length >= 50) { setActionMessage(t('You can save up to 50 stations.')); return; }
     watchedIds = next ? Array.from(new Set([...watchedIds, station.id])) : watchedIds.filter((id) => id !== station.id);
-    localStorage.setItem('alipo-watched-stations', JSON.stringify(watchedIds));
+    try { localStorage.setItem('alipo-watched-stations', JSON.stringify(watchedIds)); } catch { setActionMessage(t('Unable to save this station on your device.')); return; }
     setWatched(next);
-    if (next && 'Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+    trackEvent(next ? 'station_saved' : 'station_unsaved', { station_id: station.id });
+    window.dispatchEvent(new Event('alipo-watch-changed'));
     setActionMessage(t(next ? 'Watching this station for fuel updates.' : 'Station watch removed.'));
   };
 
@@ -72,7 +97,7 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
 
       {station.needs_location_confirmation ? <LocationVote stationId={station.id} onConfirmed={onDataChanged} /> : null}
       <div className="mt-4 grid grid-cols-2 gap-3 border-y border-line py-3 text-xs">
-        <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Fuel availability')}</span><div className="mt-1.5 space-y-2">{(['petrol', 'diesel'] as const).map((fuel) => { const fuelStatus = station[`${fuel}_status`] || 'unknown'; const fuelIsStale = station[`${fuel}_is_stale`]; const config = STATUS_CONFIG[fuelStatus] || STATUS_CONFIG.unknown; const confirmations = station[`${fuel}_confirmations`] || 0; const reportCount = station[`${fuel}_reports`] || 0; return <div key={fuel}><div className="flex items-center justify-between gap-2"><strong>{t(fuel === 'petrol' ? 'Petrol' : 'Diesel')}</strong><span className="flex items-center gap-1"><span className={`border px-1.5 py-0.5 text-[9px] font-black uppercase ${config.color}`}>{t(config.label)}</span>{fuelIsStale ? <span className="bg-[#f3ece8] px-1.5 py-0.5 text-[9px] font-black uppercase text-[#795548]">{t('Stale')}</span> : null}</span></div><div className="mt-0.5 flex items-center justify-end text-[9px] text-muted"><span className="inline-flex items-center gap-0.5"><BadgeCheck className="h-3 w-3" />{confirmations >= 2 ? t('Confirmed by community') : t('Community reports')} · {t(reportCount === 1 ? '{count} report' : '{count} reports', { count: reportCount })}{confirmations > 0 ? ` · ${t(confirmations === 1 ? '{count} person reported' : '{count} people reported', { count: confirmations })}` : ''}</span></div>{fuelStatus !== 'unknown' && !fuelIsStale ? <button type="button" disabled={confirmingFuel !== null} onClick={(event) => { event.stopPropagation(); void confirmFuel(fuel); }} className="mt-1 inline-flex min-h-7 items-center gap-1 text-[10px] font-black text-forest disabled:opacity-50"><Check className="h-3 w-3" />{t(confirmingFuel === fuel ? 'Confirming…' : 'Still correct')}</button> : null}</div>; })}</div></div>
+        <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Fuel availability')}</span><div className="mt-1.5 space-y-2">{(['petrol', 'diesel'] as const).map((fuel) => { const fuelStatus = station[`${fuel}_status`] || 'unknown'; const fuelIsStale = station[`${fuel}_is_stale`]; const config = STATUS_CONFIG[fuelStatus] || STATUS_CONFIG.unknown; const confirmations = station[`${fuel}_confirmations`] || 0; const reportCount = station[`${fuel}_reports`] || 0; return <div key={fuel}><div className="flex items-center justify-between gap-2"><strong>{t(fuel === 'petrol' ? 'Petrol' : 'Diesel')}</strong><span className="flex items-center gap-1"><span className={`border px-1.5 py-0.5 text-[9px] font-black uppercase ${config.color}`}>{t(config.label)}</span>{fuelIsStale ? <span className="bg-[#f3ece8] px-1.5 py-0.5 text-[9px] font-black uppercase text-[#795548]">{t('Stale')}</span> : null}</span></div><div className="mt-0.5 flex items-center justify-end text-[9px] text-muted"><span className="inline-flex items-center gap-0.5"><BadgeCheck className="h-3 w-3" />{confirmations >= 2 ? t('Confirmed by community') : t('Community reports')} · {t(reportCount === 1 ? '{count} report' : '{count} reports', { count: reportCount })}{confirmations > 0 ? ` · ${t(confirmations === 1 ? '{count} person reported' : '{count} people reported', { count: confirmations })}` : ''}</span></div><div className="mt-2 flex flex-wrap gap-2">{(['available', 'out'] as const).map((choice) => <button key={choice} type="button" disabled={confirmingFuel !== null} aria-label={`${fuel === 'petrol' ? t('Petrol') : t('Diesel')}: ${t(choice === 'available' ? 'Still has fuel' : 'Out of fuel')}`} onClick={(event) => { event.stopPropagation(); void confirmFuel(fuel, choice); }} className="min-h-10 border border-forest/30 px-2 text-[10px] font-black text-forest disabled:opacity-50">{t(choice === 'available' ? 'Still has fuel' : 'Out of fuel')}</button>)}</div></div>; })}</div></div>
         <div><span className="block text-[10px] uppercase tracking-wide text-muted">{t('Queue')}</span><strong className="mt-0.5 flex items-center gap-1"><Clock3 className="h-3 w-3" /> {queue?.duration ? t(queue.duration) : t('Unknown')}</strong></div>
       </div>
 
@@ -132,6 +157,7 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
         </div>
       </div>
       {actionMessage ? <p role="status" className="mt-2 text-[10px] font-bold text-forest">{actionMessage}</p> : null}
+      <StationShare station={station} />
 
       {historyOpen ? (
         <div onClick={(event) => event.stopPropagation()} className="mt-4 border-t border-line pt-3">

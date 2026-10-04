@@ -7,16 +7,19 @@ import { ArrowRight, Bell, CircleHelp, Info, List, Map as MapIcon, MapPin, MapPi
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
+import { FuelAlerts } from '@/components/FuelAlerts';
+import { savedStationIds } from '@/lib/fuel-alerts';
 import { SponsorBanner } from '@/components/SponsorBanner';
 import { CITY_CENTERS, DEFAULT_CITY, classifyStationBrand, getStationStockStatus, STATION_STOCK_CONFIG, LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY } from '@/lib/constants';
 import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition, isStandalonePwa, subscribeGeolocationPermissionChange, LOCATION_CONSENT_KEY, shouldResumeLocation, LOCATION_PREFERENCES_KEY, parseLocationPreferences } from '@/lib/geolocation';
 import { Station } from '@/types/alipo';
-import { trackCacheResponse } from '@/lib/gtag';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
 import { HowItWorks } from '@/components/HowItWorks';
 import { NameSuggestions } from '@/components/NameSuggestions';
 import { OnboardingModal } from '@/components/OnboardingModal';
+import { WhatsNewModal } from '@/components/WhatsNewModal';
+import { APP_VERSION } from '@/lib/release';
 import { LocationHelpSheet } from '@/components/LocationHelpSheet';
 import { StationFilters } from '@/components/StationFilters';
 import { matchesStationFilters, type ReportFilters } from '@/lib/station-filters';
@@ -68,7 +71,6 @@ type StationStatus = Pick<Station,
 
 async function fetchCachedJson<T>(route: string): Promise<T> {
   const response = await fetch(route, { cache: 'no-store' });
-  trackCacheResponse(route, response);
   if (!response.ok) throw new Error(`${route} returned ${response.status}`);
   return response.json() as Promise<T>;
 }
@@ -120,16 +122,9 @@ export default function HomePage() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   const [isNameSuggestionsOpen, setIsNameSuggestionsOpen] = useState(false);
-  const [announcementDismissed, setAnnouncementDismissed] = useState(true);
-  useEffect(() => {
-    try { setAnnouncementDismissed(localStorage.getItem('alipo-availability-announcement-20261001-dismissed') === 'true'); }
-    catch { setAnnouncementDismissed(false); }
-  }, []);
-  const dismissAnnouncement = () => {
-    setAnnouncementDismissed(true);
-    try { localStorage.setItem('alipo-availability-announcement-20261001-dismissed', 'true'); } catch { /* Still dismiss for this session. */ }
-  };
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isWhatsNewRequested, setIsWhatsNewRequested] = useState(false);
+  const closeWhatsNew = useCallback(() => setIsWhatsNewRequested(false), []);
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('list');
   const [loading, setLoading] = useState(false);
   const [radiusKm, setRadiusKm] = useState(5);
@@ -153,7 +148,6 @@ export default function HomePage() {
   const locationRequestRef = useRef(0);
   const locationRequestPendingRef = useRef(false);
   const lastLocationSuccessRef = useRef(0);
-  const watchedStatusRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     try {
@@ -166,6 +160,7 @@ export default function HomePage() {
         followLocationRef.current = localStorage.getItem(LOCATION_CONSENT_KEY) === 'true';
       }
     } catch { /* Keep the app usable without persistent storage. */ }
+    if (new URLSearchParams(window.location.search).has('station')) setSelectedCity('All Cities');
     setLocationPreferencesLoaded(true);
   }, []);
 
@@ -205,6 +200,16 @@ export default function HomePage() {
     window.requestAnimationFrame(() => mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }, []);
   const clearMapSelection = useCallback(() => setSelectedStation(null), []);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const stationId = url.searchParams.get('station');
+    if (!stationId) return;
+    const shared = stations.find((station) => station.id === stationId);
+    if (!shared) return;
+    viewStationOnMap(shared);
+    url.searchParams.delete('station');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`);
+  }, [stations, viewStationOnMap]);
   const closeHowItWorks = useCallback(() => setIsHowItWorksOpen(false), []);
 
   const fetchStations = useCallback(async (background = false) => {
@@ -433,6 +438,7 @@ export default function HomePage() {
   }, []);
 
   const toggleStationAlerts = useCallback(async () => {
+    if (!isStandalonePwa() || !savedStationIds().length) return;
     if (!('Notification' in window) || !('serviceWorker' in navigator)) {
       setNotificationState('unsupported');
       return;
@@ -473,21 +479,6 @@ export default function HomePage() {
     };
   }, [fetchStations, isPrelaunch, isBypassed, launchChecked]);
 
-  useEffect(() => {
-    let watchedIds: string[] = [];
-    try { watchedIds = JSON.parse(localStorage.getItem('alipo-watched-stations') || '[]') as string[]; } catch { watchedIds = []; }
-    const next: Record<string, string> = {};
-    for (const station of stations) {
-      if (!watchedIds.includes(station.id)) continue;
-      const status = `${station.petrol_status || 'unknown'}:${station.diesel_status || 'unknown'}`;
-      next[station.id] = status;
-      const previous = watchedStatusRef.current[station.id];
-      if (previous && previous !== status && status.includes('available') && 'Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
-        void navigator.serviceWorker.ready.then((registration) => registration.showNotification(t('Fuel update at {station}', { station: station.name }), { body: t('Fuel is now reported available. Open Alipo to check the latest queue.'), icon: '/icon-192.png', badge: '/favicon.png', tag: `fuel-available-${station.id}`, data: { stationId: station.id } }));
-      }
-    }
-    watchedStatusRef.current = next;
-  }, [stations, t]);
 
   useEffect(() => {
     try {
@@ -652,13 +643,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {!announcementDismissed ? <section aria-label={t('Service announcement')} className="border-y border-emerald-300 bg-emerald-50">
-          <div className="mx-auto flex max-w-[1440px] items-start gap-3 px-5 py-4 sm:px-8 lg:px-12">
-            <Info className="mt-0.5 h-5 w-5 shrink-0 text-emerald-800" />
-            <div className="flex-1"><h2 className="text-sm font-black text-emerald-950">Fuel availability updates are fixed / Zosintha za kupezeka kwa mafuta zakonzedwa</h2><p lang="en" className="mt-1 text-sm text-emerald-900">Petrol and diesel reports now show the latest fuel availability again. We apologise for the disruption. Refresh the page if you still see old results, and keep sharing updates to help other drivers.</p><p lang="ny" className="mt-2 text-sm text-emerald-900">Malipoti a petulo ndi dizilo tsopano akusonyezanso kupezeka kwa mafuta molondola. Tikupepesa chifukwa cha vuto limeneli. Ngati mukuonabe uthenga wakale, tsegulaninso tsambali. Pitirizani kutumiza malipoti kuti muthandize madalaivala ena.</p></div>
-            <button type="button" aria-label={t('Dismiss announcement')} onClick={dismissAnnouncement} className="grid min-h-10 min-w-10 place-items-center text-emerald-900"><XCircle className="h-5 w-5" /></button>
-          </div>
-        </section> : null}
         <StationFilters
           fuel={selectedFuel}
           onFuelChange={setSelectedFuel}
@@ -736,11 +720,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        {notificationState !== 'unsupported' ? <section aria-label={t('Station alerts')} className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-5 sm:px-8 lg:px-12">
-          <div><h2 className="text-sm font-bold text-forest">{t('Station alerts')}</h2><p className="mt-1 text-xs leading-5 text-muted">{t('Get a reminder to share an update when you reach a station.')}</p></div>
-          <button type="button" aria-pressed={stationAlertsEnabled} onClick={() => { void toggleStationAlerts(); }} className="inline-flex min-h-11 items-center gap-2 border border-forest px-4 py-2 text-sm font-bold text-forest"><Bell className="h-4 w-4" />{t(stationAlertsEnabled ? 'Alerts on' : 'Enable alerts')}</button>
-          {notificationState === 'denied' ? <p role="status" className="w-full text-xs text-muted">{t('Notifications are blocked. Enable them in your browser settings to use station alerts.')}</p> : null}
-        </section> : null}
+        <FuelAlerts />
+
 
         {/* Floating Mobile Map/List Toggle Pill */}
         <div className="fixed bottom-6 left-1/2 z-30 -translate-x-1/2 lg:hidden">
@@ -773,13 +754,14 @@ export default function HomePage() {
 
         <section className="border-t border-line bg-[#eee9dd]"><div className="mx-auto grid max-w-[1440px] gap-6 px-5 py-8 sm:grid-cols-2 sm:px-8 lg:px-12"><div><p className="eyebrow text-orange">{t('No data? No problem.')}</p><h2 className="mt-2 text-xl font-black">{t('Alipo works wherever you drive.')}</h2></div><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center border border-forest/20 text-forest"><MapPin className="h-5 w-5" /></div><div><p className="text-xs text-muted">{t('Community reports')}</p><p className="font-bold">{t('Built around Malawi')}</p></div></div></div></section>
       </main>
-      <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo</strong> — {t('Find fuel. Share updates. Keep Malawi moving.')}</p><p><Link href="/privacy" className="underline decoration-white/30 underline-offset-4 transition hover:text-white">{t('Privacy Policy')}</Link> · <a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · {t('Created by')} <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
+      <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo v{APP_VERSION}</strong> · <button type="button" onClick={() => setIsWhatsNewRequested(true)} className="min-h-10 underline underline-offset-4 hover:text-white">{t('What’s new')}</button> — {t('Find fuel. Share updates. Keep Malawi moving.')}</p><p><Link href="/privacy" className="underline decoration-white/30 underline-offset-4 transition hover:text-white">{t('Privacy Policy')}</Link> · <a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · {t('Created by')} <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
       
 
 
       <ReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} stations={stations} selectedStation={selectedStation} onReportSubmitted={fetchStations} />
       <HowItWorks isOpen={isHowItWorksOpen} onClose={closeHowItWorks} />
       <NameSuggestions isOpen={isNameSuggestionsOpen} onClose={() => setIsNameSuggestionsOpen(false)} onConfirmed={fetchStations} />
+      <WhatsNewModal blocked={isOnboardingOpen || isReportModalOpen || isLocationHelpOpen || isHowItWorksOpen || isNameSuggestionsOpen} requested={isWhatsNewRequested} onClose={closeWhatsNew} />
       <OnboardingModal
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
@@ -790,7 +772,7 @@ export default function HomePage() {
           await toggleStationAlerts();
         }}
         alertsEnabled={stationAlertsEnabled}
-        notificationState={notificationState}
+        notificationState="unsupported"
       />
       <LocationHelpSheet
         isOpen={isLocationHelpOpen}

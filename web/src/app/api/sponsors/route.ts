@@ -1,10 +1,11 @@
+import { logServerResponse } from '@/lib/server-response';
 import { NextResponse } from 'next/server';
 import { publicCdnCacheHeaders } from '@/lib/cache-headers';
 import { createSupabasePublicClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+async function handleGet() {
   const supabase = createSupabasePublicClient();
   if (!supabase) {
     return NextResponse.json({ sponsors: [], error: 'Supabase not configured' }, { status: 503 });
@@ -26,4 +27,8 @@ export async function GET() {
     { sponsors: data || [] },
     { headers: publicCdnCacheHeaders(1_200, 3_600) },
   );
+}
+
+export async function GET() {
+  return logServerResponse('/api/sponsors', await handleGet());
 }

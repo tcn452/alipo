@@ -2,8 +2,8 @@ export const GA_TRACKING_ID = 'G-9NR2XVH5WC';
 
 type GtagEventParams = Record<string, string | number | boolean | null | undefined>;
 
-export function trackFuelUpdate(stage: 'started' | 'submitted' | 'failed', details: {
-  station_id?: string; fuel_type?: string; fuel_status?: string; queue_estimate?: string; city?: string; response_status?: number;
+export function trackFuelUpdate(stage: 'started' | 'completed' | 'failed', details: {
+  station_id?: string; fuel_type?: string; fuel_status?: string; queue_estimate?: string; city?: string; response_status?: number; method?: 'form' | 'one_tap';
 } = {}) {
   // Explicit allowlist: never forward phone, coordinates, or API error text.
   trackEvent(`fuel_update_${stage}`, {
@@ -13,6 +13,7 @@ export function trackFuelUpdate(stage: 'started' | 'submitted' | 'failed', detai
     queue_estimate: details.queue_estimate,
     city: details.city,
     response_status: details.response_status,
+    method: details.method || 'form',
   });
 }
 
@@ -27,21 +28,10 @@ declare global {
  * Log a generic Google Analytics custom event
  */
 export function trackEvent(eventName: string, params?: GtagEventParams) {
-  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
-    window.gtag('event', eventName, params);
-  }
-}
-
-export function trackCacheResponse(route: string, response: Response) {
-  // Uniform sampling keeps GA volume small while preserving a useful hit-rate estimate.
-  if (Math.random() > 0.1) return;
-  trackEvent('edge_cache_response', {
-    event_category: 'Performance',
-    route,
-    cache_status: response.headers.get('x-vercel-cache') || 'unavailable',
-    cache_age_seconds: Number(response.headers.get('age') || 0),
-    response_status: response.status,
-  });
+  if (typeof window === 'undefined') return;
+  window.dataLayer ||= [];
+  window.gtag ||= function () { window.dataLayer!.push(arguments); };
+  window.gtag('event', eventName, params);
 }
 
 /**

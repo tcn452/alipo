@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Check, CheckCircle2, CircleAlert, MapPinOff, PencilLine, Send, X, XCircle } from 'lucide-react';
 import { FuelStatus, FuelType, QueueEstimate, Station } from '@/types/alipo';
 import { useLanguage } from '@/lib/i18n';
@@ -28,9 +28,10 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('Your report helps keep Malawi moving.');
   const [errorMsg, setErrorMsg] = useState('');
+  const started = useRef(false);
   useEffect(() => {
-    if (isOpen && reportType === 'fuel') trackFuelUpdate('started');
-    if (!isOpen) { setSuccess(false); setErrorMsg(''); }
+    if (isOpen && reportType === 'fuel' && !started.current) { started.current = true; trackFuelUpdate('started', { station_id: selectedStation?.id, city: selectedStation?.city }); }
+    if (!isOpen) { started.current = false; setSuccess(false); setErrorMsg(''); }
   }, [isOpen, reportType]);
 
   useEffect(() => { if (selectedStation) setStationId(selectedStation.id); else if (stations.length && !stationId) setStationId(stations[0].id); }, [selectedStation, stations, stationId]);
@@ -61,7 +62,7 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
         ? result.confirmed ? 'The station name is now confirmed and updated.' : 'Suggestion saved. One more matching vote will confirm this name.'
         : 'Your report helps keep Malawi moving.');
       setSuccess(true);
-      if (reportType === 'fuel') trackFuelUpdate('submitted', { station_id: station.id, city: station.city, fuel_type: fuelType, fuel_status: status, queue_estimate: queueEstimate, response_status: response.status });
+      if (reportType === 'fuel') trackFuelUpdate('completed', { station_id: station.id, city: station.city, fuel_type: fuelType, fuel_status: status, queue_estimate: queueEstimate, response_status: response.status });
       onReportSubmitted();
     } catch (error) {
       if (reportType === 'fuel') trackFuelUpdate('failed', { station_id: stationId, fuel_type: fuelType, fuel_status: status, response_status: responseStatus });

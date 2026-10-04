@@ -1,8 +1,9 @@
 {
   "name": "alipo-web",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "test:filters": "node --experimental-strip-types --test tests/station-filters.test.mjs",
     "dev": "next dev",
     "build": "next build",
@@ -17,12 +18,14 @@
     "next": "^14.2.24",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tailwind-merge": "^3.0.2"
+    "tailwind-merge": "^3.0.2",
+    "web-push": "3.6.7"
   },
   "devDependencies": {
     "@types/node": "^20.17.19",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "@types/web-push": "3.6.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",

@@ -21,6 +21,7 @@ export function SponsorBanner({ placement = 'all', city = 'all', className = '',
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [visible, setVisible] = useState(false);
   const container = useRef<HTMLDivElement>(null);
+  const counted = useRef(new Set<string>());
   const slot = `${placement}:${slotId}`;
 
   useEffect(() => {
@@ -38,8 +39,8 @@ export function SponsorBanner({ placement = 'all', city = 'all', className = '',
 
   useEffect(() => {
     if (!container.current) return;
-    if (!('IntersectionObserver' in window)) { setVisible(true); return; }
-    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.5 });
+    if (!('IntersectionObserver' in window)) return;
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting && entry.intersectionRatio >= 0.5), { threshold: [0, 0.5] });
     observer.observe(container.current);
     return () => observer.disconnect();
   }, []);
@@ -58,8 +59,17 @@ export function SponsorBanner({ placement = 'all', city = 'all', className = '',
   }, [visible, sponsors, slot]);
 
   useEffect(() => {
-    if (visible && sponsor && document.visibilityState === 'visible') trackSponsorImpression(sponsor, placement);
-  }, [visible, sponsor, placement]);
+    const record = () => {
+      if (!visible || !sponsor || document.visibilityState !== 'visible') return;
+      const key = `${slot}:${sponsor.id}`;
+      if (counted.current.has(key)) return;
+      counted.current.add(key);
+      trackSponsorImpression(sponsor, placement);
+    };
+    record();
+    document.addEventListener('visibilitychange', record);
+    return () => document.removeEventListener('visibilitychange', record);
+  }, [visible, sponsor, placement, slot]);
 
   return <div ref={container} className="min-h-[72px]">{sponsor ? <SponsorContent sponsor={sponsor} placement={placement} className={className} /> : null}</div>;
 }

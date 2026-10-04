@@ -1,0 +1,5 @@
+[
+  { "eventName": "fuel_update_completed", "countingMethod": "ONCE_PER_EVENT" },
+  { "eventName": "app_install", "countingMethod": "ONCE_PER_EVENT" },
+  { "eventName": "fuel_alert_enabled", "countingMethod": "ONCE_PER_EVENT" }
+]
