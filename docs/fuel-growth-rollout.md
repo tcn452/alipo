@@ -64,3 +64,21 @@ Dispatch uses current station readings, not a durable database event queue. It p
 - Browser fixture checks: direct report completion, failure without completion, rapid-double-click suppression, PNG generation, and saving without a notification prompt in an uninstalled browser.
 
 The live app, database privileges, scheduler, dispatcher authentication and read APIs were verified after rollout. Real device push delivery, WhatsApp crawler fetching, GA key-event settings and GA alert emails remain manual checks. External map assets did not load in the earlier local preview; the production browser loaded the station list and map. Test report submissions used mocked data; no artificial fuel reports were submitted to production.
+
+## Area fuel reports and share analytics
+
+Use **Share an area fuel report** above the station list. Choose Northern/Central/Southern Malawi, a main city, or all Malawi, then choose petrol or diesel. The picture contains a timestamped snapshot, counts for fresh available/out/stale/unknown, and the first six stations (fresh availability first). If there are more, the picture states that the full list is on Alipo. Saving/downloading the PNG is separate from sharing it. Native sharing opens the system share menu; choose WhatsApp there. A direct WhatsApp text/link option is also available.
+
+City reports include directory city/district matches and a public 20 km city-centre radius; they do not share the user's GPS location. Regional reports use recognised district/city names and stations within the main cities' 20 km radius. Locations that cannot be assigned reliably remain in All Malawi instead of being guessed into a region. Only active Alipo stations that carry the selected fuel are included. Missing reports are unknown, not out of fuel. Readings older than four hours are labelled stale and never count towards fresh fuel availability. These are community reports, not verified inventory.
+
+Short links look like `https://alipo.co.mw/r/central/diesel` and redirect to a live Alipo area report with `utm_source=whatsapp&utm_medium=share&utm_campaign=area_report`. City report links restore city/fuel on the main map; regional reports retain their full station list on the report page and link to the all-Malawi map with the chosen fuel. Existing station links use campaign `station_status`. Each open reloads current station readings; a shared PNG remains a snapshot.
+
+GA4 analytics emitted:
+
+- `share`: `content_type=station_status|area_status`, `method=native|whatsapp`, and `item_id`. Area shares also include `area_id` and `fuel_type`. Native events fire after the share promise resolves; WhatsApp events measure launching the composer, not confirmed message delivery.
+- `share_card_downloaded`: station/area picture downloads, kept separate from share counts.
+- `area_report_viewed`: one event per mounted live area report, with `area_id` and `fuel_type`. This includes ordinary opens and shared-link opens; use campaign/source dimensions to identify referrals.
+
+In GA4, use Reports → Engagement → Events for event totals. Register missing event-scoped dimensions `content_type`, `method`, `area_id`, and `fuel_type` in Admin → Custom definitions for a breakdown in Explore. Use Traffic acquisition's Session source/medium `whatsapp / share` and Session campaign `area_report` or `station_status` for referred sessions/users. Compare share actions to referred sessions rather than assuming every share was delivered or read. Browser consent, blockers, and platform support affect collection. Keep the three existing key events unchanged; shares and report views are diagnostics.
+
+Validation: 37 web tests pass, including regional/fuel filtering, stale/unknown counts, invalid short links, analytics payloads without coordinates, and real PNG rendering of populated and empty OG reports. Production build and TypeScript checks pass. No database migration or new secret is required for area reports; queries use the existing public read client.

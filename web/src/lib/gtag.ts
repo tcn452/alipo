@@ -127,3 +127,8 @@ export function trackSponsorClick(
     location_id: sponsor.city || 'all',
   });
 }
+
+/** A share action; WhatsApp cannot confirm that a message was actually sent. */
+export function trackAreaShare(method: 'native' | 'whatsapp', areaId: string, fuel: 'petrol' | 'diesel') {
+  trackEvent('share', { method, content_type: 'area_status', item_id: `${areaId}:${fuel}`, area_id: areaId, fuel_type: fuel });
+}

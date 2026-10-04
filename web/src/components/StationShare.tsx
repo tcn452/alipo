@@ -53,7 +53,7 @@ export function StationShare({ station }: { station: Station }) {
     <div className="absolute bottom-full right-0 z-20 mb-2 w-60 max-w-[calc(100vw-3rem)] border border-line bg-white p-3 text-xs text-forest shadow-lg">
       <p className="mb-2 font-black">{t('Share station status')}</p>
       <button type="button" disabled={busy} onClick={() => { void share(); }} className="flex min-h-11 w-full items-center justify-center bg-forest px-3 font-bold text-white disabled:opacity-60">{t(busy ? 'Preparing picture…' : 'Share on WhatsApp')}</button>
-      <button type="button" disabled={!card} onClick={() => { if (!card) return; const url = URL.createObjectURL(card); const a = document.createElement('a'); a.href = url; a.download = card.name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }} className="min-h-11 w-full text-left font-bold disabled:opacity-50">{t('Download picture')}</button>
+      <button type="button" disabled={!card} onClick={() => { if (!card) return; const url = URL.createObjectURL(card); const a = document.createElement('a'); a.href = url; a.download = card.name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); trackEvent('share_card_downloaded', { content_type: 'station_status', item_id: station.id }); }} className="min-h-11 w-full text-left font-bold disabled:opacity-50">{t('Download picture')}</button>
       <button type="button" onClick={() => { void share(true); }} className="min-h-11 w-full text-left font-bold">{t('Share link')}</button>
       {message ? <p role="status" className="mt-1 text-[11px]">{message}</p> : null}
     </div>
