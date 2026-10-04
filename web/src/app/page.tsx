@@ -7,11 +7,12 @@ import { ArrowRight, Bell, CircleHelp, Info, List, Map as MapIcon, MapPin, MapPi
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
 import { StationCard } from '@/components/StationCard';
+import { FuelAlerts } from '@/components/FuelAlerts';
+import { savedStationIds } from '@/lib/fuel-alerts';
 import { SponsorBanner } from '@/components/SponsorBanner';
 import { CITY_CENTERS, DEFAULT_CITY, classifyStationBrand, getStationStockStatus, STATION_STOCK_CONFIG, LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY } from '@/lib/constants';
 import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition, isStandalonePwa, subscribeGeolocationPermissionChange, LOCATION_CONSENT_KEY, shouldResumeLocation, LOCATION_PREFERENCES_KEY, parseLocationPreferences } from '@/lib/geolocation';
 import { Station } from '@/types/alipo';
-import { trackCacheResponse } from '@/lib/gtag';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
 import { HowItWorks } from '@/components/HowItWorks';
@@ -68,7 +69,6 @@ type StationStatus = Pick<Station,
 
 async function fetchCachedJson<T>(route: string): Promise<T> {
   const response = await fetch(route, { cache: 'no-store' });
-  trackCacheResponse(route, response);
   if (!response.ok) throw new Error(`${route} returned ${response.status}`);
   return response.json() as Promise<T>;
 }
@@ -153,7 +153,6 @@ export default function HomePage() {
   const locationRequestRef = useRef(0);
   const locationRequestPendingRef = useRef(false);
   const lastLocationSuccessRef = useRef(0);
-  const watchedStatusRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     try {
@@ -166,6 +165,7 @@ export default function HomePage() {
         followLocationRef.current = localStorage.getItem(LOCATION_CONSENT_KEY) === 'true';
       }
     } catch { /* Keep the app usable without persistent storage. */ }
+    if (new URLSearchParams(window.location.search).has('station')) setSelectedCity('All Cities');
     setLocationPreferencesLoaded(true);
   }, []);
 
@@ -205,6 +205,16 @@ export default function HomePage() {
     window.requestAnimationFrame(() => mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }, []);
   const clearMapSelection = useCallback(() => setSelectedStation(null), []);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const stationId = url.searchParams.get('station');
+    if (!stationId) return;
+    const shared = stations.find((station) => station.id === stationId);
+    if (!shared) return;
+    viewStationOnMap(shared);
+    url.searchParams.delete('station');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`);
+  }, [stations, viewStationOnMap]);
   const closeHowItWorks = useCallback(() => setIsHowItWorksOpen(false), []);
 
   const fetchStations = useCallback(async (background = false) => {
@@ -433,6 +443,7 @@ export default function HomePage() {
   }, []);
 
   const toggleStationAlerts = useCallback(async () => {
+    if (!isStandalonePwa() || !savedStationIds().length) return;
     if (!('Notification' in window) || !('serviceWorker' in navigator)) {
       setNotificationState('unsupported');
       return;
@@ -473,21 +484,6 @@ export default function HomePage() {
     };
   }, [fetchStations, isPrelaunch, isBypassed, launchChecked]);
 
-  useEffect(() => {
-    let watchedIds: string[] = [];
-    try { watchedIds = JSON.parse(localStorage.getItem('alipo-watched-stations') || '[]') as string[]; } catch { watchedIds = []; }
-    const next: Record<string, string> = {};
-    for (const station of stations) {
-      if (!watchedIds.includes(station.id)) continue;
-      const status = `${station.petrol_status || 'unknown'}:${station.diesel_status || 'unknown'}`;
-      next[station.id] = status;
-      const previous = watchedStatusRef.current[station.id];
-      if (previous && previous !== status && status.includes('available') && 'Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
-        void navigator.serviceWorker.ready.then((registration) => registration.showNotification(t('Fuel update at {station}', { station: station.name }), { body: t('Fuel is now reported available. Open Alipo to check the latest queue.'), icon: '/icon-192.png', badge: '/favicon.png', tag: `fuel-available-${station.id}`, data: { stationId: station.id } }));
-      }
-    }
-    watchedStatusRef.current = next;
-  }, [stations, t]);
 
   useEffect(() => {
     try {
@@ -736,11 +732,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        {notificationState !== 'unsupported' ? <section aria-label={t('Station alerts')} className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-5 sm:px-8 lg:px-12">
-          <div><h2 className="text-sm font-bold text-forest">{t('Station alerts')}</h2><p className="mt-1 text-xs leading-5 text-muted">{t('Get a reminder to share an update when you reach a station.')}</p></div>
-          <button type="button" aria-pressed={stationAlertsEnabled} onClick={() => { void toggleStationAlerts(); }} className="inline-flex min-h-11 items-center gap-2 border border-forest px-4 py-2 text-sm font-bold text-forest"><Bell className="h-4 w-4" />{t(stationAlertsEnabled ? 'Alerts on' : 'Enable alerts')}</button>
-          {notificationState === 'denied' ? <p role="status" className="w-full text-xs text-muted">{t('Notifications are blocked. Enable them in your browser settings to use station alerts.')}</p> : null}
-        </section> : null}
+        <FuelAlerts />
+
 
         {/* Floating Mobile Map/List Toggle Pill */}
         <div className="fixed bottom-6 left-1/2 z-30 -translate-x-1/2 lg:hidden">
@@ -790,7 +783,7 @@ export default function HomePage() {
           await toggleStationAlerts();
         }}
         alertsEnabled={stationAlertsEnabled}
-        notificationState={notificationState}
+        notificationState="unsupported"
       />
       <LocationHelpSheet
         isOpen={isLocationHelpOpen}

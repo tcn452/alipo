@@ -35,9 +35,10 @@ function recordPwaInstall(
   trigger: 'prompt' | 'appinstalled' | 'standalone_open' = 'appinstalled'
 ) {
   if (typeof window === 'undefined') return;
-  const alreadyLogged = localStorage.getItem('alipo-pwa-install-logged');
-  if (alreadyLogged) return;
-  localStorage.setItem('alipo-pwa-install-logged', 'true');
+  try {
+    if (localStorage.getItem('alipo-pwa-install-logged')) return;
+    localStorage.setItem('alipo-pwa-install-logged', 'true');
+  } catch { /* Installation still works when storage is blocked. */ }
 
   const p = platform || (sharedIsIos ? 'ios' : /android/i.test(navigator.userAgent) ? 'android' : 'desktop');
   
@@ -51,10 +52,9 @@ function ensureInstallListener() {
   sharedIsStandalone = isStandaloneDisplay();
   sharedIsIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  if (sharedIsStandalone || new URLSearchParams(window.location.search).get('source') === 'pwa') {
+  if (sharedIsStandalone) {
     recordPwaInstall(undefined, 'standalone_open');
     notify();
-    return;
   }
 
   window.addEventListener('beforeinstallprompt', (event) => {

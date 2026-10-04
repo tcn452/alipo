@@ -1,3 +1,4 @@
+import { logServerResponse } from '@/lib/server-response';
 import { NextResponse } from 'next/server';
 import { classifyStationBrand } from '@/lib/constants';
 import { createSupabasePublicClient } from '@/lib/supabase-server';
@@ -5,7 +6,7 @@ import { Station } from '@/types/alipo';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+async function handleGet() {
   const supabase = createSupabasePublicClient();
   if (!supabase) {
     return NextResponse.json({ stations: [], error: 'Supabase not configured' }, { status: 503 });
@@ -41,4 +42,8 @@ export async function GET() {
     { stations, total: stations.length },
     { headers: { 'Cache-Control': 'no-store', 'CDN-Cache-Control': 'no-store', 'Vercel-CDN-Cache-Control': 'no-store' } },
   );
+}
+
+export async function GET() {
+  return logServerResponse('/api/stations/catalog', await handleGet());
 }

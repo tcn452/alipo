@@ -1,9 +1,10 @@
+import { logServerResponse } from '@/lib/server-response';
 import { NextResponse } from 'next/server';
 import { createSupabasePublicClient, createSupabaseAdminClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+async function handleGet() {
   const supabase = createSupabasePublicClient();
   if (!supabase) {
     return NextResponse.json({ statuses: [], error: 'Supabase not configured' }, { status: 503 });
@@ -40,4 +41,8 @@ export async function GET() {
     { statuses, total: statuses.length },
     { headers: { 'Cache-Control': 'no-store', 'CDN-Cache-Control': 'no-store', 'Vercel-CDN-Cache-Control': 'no-store' } },
   );
+}
+
+export async function GET() {
+  return logServerResponse('/api/stations/status', await handleGet());
 }

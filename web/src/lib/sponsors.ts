@@ -1,5 +1,4 @@
 import { Sponsor } from '@/types/alipo';
-import { trackCacheResponse } from '@/lib/gtag';
 import { nextSponsor } from '@/lib/sponsor-rotation';
 
 export const FALLBACK_SPONSORS: Sponsor[] = [
@@ -37,7 +36,6 @@ const SPONSOR_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 async function fetchSponsors() {
   const response = await fetch('/api/sponsors');
-  trackCacheResponse('/api/sponsors', response);
   if (!response.ok) throw new Error('Sponsors unavailable');
   const payload = await response.json() as { sponsors?: Sponsor[] };
   return Array.isArray(payload.sponsors) ? payload.sponsors : [];

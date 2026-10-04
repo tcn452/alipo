@@ -39,7 +39,7 @@ export default function PrivacyPolicyPage() {
           </div>
 
           <p className="mt-6 text-xs text-muted">
-            Last Updated: September 2026 · Effective Immediately
+            Last Updated: October 2026 · Effective Immediately
           </p>
 
           <hr className="my-6 border-line" />
@@ -60,6 +60,9 @@ export default function PrivacyPolicyPage() {
                 </li>
                 <li>
                   <strong className="text-ink">Community Reports & Phone Numbers:</strong> When submitting fuel updates, name suggestions, or flags, phone numbers are converted to irreversible cryptographic hashes to prevent spam and duplicate voting while preserving your anonymity.
+                </li>
+                <li>
+                  <strong className="text-ink">Saved Stations & Fuel Alerts:</strong> Saved stations stay on your device. If you enable fuel alerts, we also store your saved station identifiers and browser push subscription to send notifications. A device cookie lets you manage your subscription. Turning off fuel alerts deletes that subscription; expired push subscriptions are removed when delivery fails.
                 </li>
               </ul>
             </section>
