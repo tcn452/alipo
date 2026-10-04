@@ -2,6 +2,8 @@
 
 ## What is implemented
 
+- Web version 1.1.0 (displayed as Alipo v1.1). Returning users with completed onboarding see the “What’s new” dialog once per browser/device after dismissing it. New users receive onboarding instead, and the release is marked seen for them. The footer can reopen release notes at any time. The dialog waits for other dialogs to close, supports Escape and keyboard focus trapping, and includes English/Chichewa copy. Clearing browser storage resets this history.
+
 - `fuel_update_started`, `fuel_update_completed`, and `fuel_update_failed`, with `method=form|one_tap`. Completion is emitted only after the report API returns success. Phone numbers, coordinates and error text are excluded. Started is counted once per form opening; a one-tap attempt counts as a start.
 - Each sponsor/placement/slot is counted once during that mounted slot's lifetime, after at least 50% intersects the viewport while the document is visible. Scrolling away/back, React effect replay and rotating back to the same sponsor do not add impressions. A new page load or recreated slot can count again. `view_promotion` remains the GA4 companion event; do not sum both events as impressions.
 - Browser `edge_cache_response` events are removed. Sponsor, catalogue and status handlers emit structured origin response logs. Actual CDN HIT/MISS information must come from hosting access logs; origin code cannot see a response served entirely by the CDN.

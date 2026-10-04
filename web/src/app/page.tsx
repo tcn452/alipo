@@ -18,6 +18,8 @@ import { useLanguage } from '@/lib/i18n';
 import { HowItWorks } from '@/components/HowItWorks';
 import { NameSuggestions } from '@/components/NameSuggestions';
 import { OnboardingModal } from '@/components/OnboardingModal';
+import { WhatsNewModal } from '@/components/WhatsNewModal';
+import { APP_VERSION } from '@/lib/release';
 import { LocationHelpSheet } from '@/components/LocationHelpSheet';
 import { StationFilters } from '@/components/StationFilters';
 import { matchesStationFilters, type ReportFilters } from '@/lib/station-filters';
@@ -130,6 +132,8 @@ export default function HomePage() {
     try { localStorage.setItem('alipo-availability-announcement-20261001-dismissed', 'true'); } catch { /* Still dismiss for this session. */ }
   };
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isWhatsNewRequested, setIsWhatsNewRequested] = useState(false);
+  const closeWhatsNew = useCallback(() => setIsWhatsNewRequested(false), []);
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('list');
   const [loading, setLoading] = useState(false);
   const [radiusKm, setRadiusKm] = useState(5);
@@ -766,13 +770,14 @@ export default function HomePage() {
 
         <section className="border-t border-line bg-[#eee9dd]"><div className="mx-auto grid max-w-[1440px] gap-6 px-5 py-8 sm:grid-cols-2 sm:px-8 lg:px-12"><div><p className="eyebrow text-orange">{t('No data? No problem.')}</p><h2 className="mt-2 text-xl font-black">{t('Alipo works wherever you drive.')}</h2></div><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center border border-forest/20 text-forest"><MapPin className="h-5 w-5" /></div><div><p className="text-xs text-muted">{t('Community reports')}</p><p className="font-bold">{t('Built around Malawi')}</p></div></div></div></section>
       </main>
-      <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo</strong> — {t('Find fuel. Share updates. Keep Malawi moving.')}</p><p><Link href="/privacy" className="underline decoration-white/30 underline-offset-4 transition hover:text-white">{t('Privacy Policy')}</Link> · <a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · {t('Created by')} <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
+      <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo v{APP_VERSION}</strong> · <button type="button" onClick={() => setIsWhatsNewRequested(true)} className="min-h-10 underline underline-offset-4 hover:text-white">{t('What’s new')}</button> — {t('Find fuel. Share updates. Keep Malawi moving.')}</p><p><Link href="/privacy" className="underline decoration-white/30 underline-offset-4 transition hover:text-white">{t('Privacy Policy')}</Link> · <a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · {t('Created by')} <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
       
 
 
       <ReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} stations={stations} selectedStation={selectedStation} onReportSubmitted={fetchStations} />
       <HowItWorks isOpen={isHowItWorksOpen} onClose={closeHowItWorks} />
       <NameSuggestions isOpen={isNameSuggestionsOpen} onClose={() => setIsNameSuggestionsOpen(false)} onConfirmed={fetchStations} />
+      <WhatsNewModal blocked={isOnboardingOpen || isReportModalOpen || isLocationHelpOpen || isHowItWorksOpen || isNameSuggestionsOpen} requested={isWhatsNewRequested} onClose={closeWhatsNew} />
       <OnboardingModal
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}

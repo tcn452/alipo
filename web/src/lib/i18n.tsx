@@ -5,6 +5,17 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 export type Language = 'en' | 'ny';
 
 const CHICHEWA: Record<string, string> = {
+  'What’s new': 'Zatsopano',
+  'Welcome back. Here’s what’s new.': 'Mwalandiridwanso. Nazi zatsopano.',
+  'Our first major update makes it easier to find fuel and help others.': 'Kusintha kwathu koyamba kwakukulu kumapangitsa kupeza mafuta ndi kuthandiza ena kukhala kosavuta.',
+  'Fuel updates in one tap': 'Lipoti la mafuta mwa kudina kamodzi',
+  'Tap “Still has fuel” or “Out of fuel” for petrol or diesel directly on a station card.': 'Dinani “Mafuta alipo” kapena “Mafuta atha” pa petulo kapena dizilo pa khadi la siteshoni.',
+  'Share a fuel status picture': 'Gawanani chithunzi cha momwe mafuta alili',
+  'Send a station’s fuel status and report time to friends on WhatsApp, with a link to the latest updates.': 'Tumizani momwe mafuta alili pa siteshoni ndi nthawi ya lipoti kwa anzanu pa WhatsApp, ndi ulalo wa malipoti atsopano.',
+  'Keep an eye on your stations': 'Tsatirani masiteshoni anu',
+  'Save the stations you care about. Look for fuel alerts when using the installed app.': 'Sungani masiteshoni amene mumawakonda. Onani zidziwitso za mafuta mukamagwiritsa ntchito pulogalamu yoikidwa pa foni.',
+  'Close updates': 'Tsekani zatsopano',
+  'Let’s find fuel': 'Tiyeni tipeze mafuta',
   'Find address on map': 'Pezani adilesi pamapu',
   'Searching addresses…': 'Tikufufuza ma adilesi…',
   'Search uses your address and town to find places in Malawi. Choose a match, then check the pin marks the actual station.': 'Timagwiritsa ntchito adilesi ndi tawuni kuti tipeze malo ku Malawi. Sankhani malo oyenera, kenako onetsetsani kuti chizindikiro chili pa siteshoni yeniyeni.',
