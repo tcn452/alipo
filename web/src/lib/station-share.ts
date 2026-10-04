@@ -36,8 +36,9 @@ export function fuelShareLabel(station: Station, fuel: 'petrol' | 'diesel', now 
   const status = station[`${fuel}_status`];
   if (!reported || !status || status === 'unknown') return 'Unknown';
   const age = now - Date.parse(reported);
-  if (!Number.isFinite(age) || age >= 4 * 60 * 60 * 1000 || station[`${fuel}_is_stale`]) return 'Stale — check before travelling';
-  return status === 'available' ? 'Fuel available' : status === 'out' ? 'Out of fuel' : status === 'low' ? 'Running low' : 'Unknown';
+  const label = status === 'available' ? 'Fuel available' : status === 'out' ? 'Out of fuel' : status === 'low' ? 'Running low' : 'Unknown';
+  if (!Number.isFinite(age) || age >= 4 * 60 * 60 * 1000 || station[`${fuel}_is_stale`]) return `Stale report · ${label}`;
+  return label;
 }
 
 export function shareReportTime(reported?: string, now = Date.now()) {

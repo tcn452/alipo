@@ -42,10 +42,12 @@ test('share cards never present expired or missing reports as fresh fuel', () =>
   const now = Date.parse('2026-10-04T12:00:00Z');
   const station = { petrol_status: 'available', petrol_reported_at: '2026-10-04T11:30:00Z' };
   assert.equal(fuelShareLabel(station, 'petrol', now), 'Fuel available');
-  assert.equal(fuelShareLabel({ ...station, petrol_reported_at: '2026-10-04T08:00:00Z' }, 'petrol', now), 'Stale — check before travelling');
-  assert.equal(fuelShareLabel({ ...station, petrol_reported_at: 'invalid' }, 'petrol', now), 'Stale — check before travelling');
+  assert.equal(fuelShareLabel({ ...station, petrol_reported_at: '2026-10-04T08:00:00Z' }, 'petrol', now), 'Stale report · Fuel available');
+  assert.equal(fuelShareLabel({ ...station, petrol_reported_at: 'invalid' }, 'petrol', now), 'Stale report · Fuel available');
   assert.equal(fuelShareLabel({ ...station, petrol_reported_at: undefined }, 'petrol', now), 'Unknown');
   assert.equal(fuelShareLabel({ ...station, petrol_status: 'out' }, 'petrol', now), 'Out of fuel');
+  assert.equal(fuelShareLabel({ ...station, petrol_status: 'out', petrol_is_stale: true }, 'petrol', now), 'Stale report · Out of fuel');
+  assert.equal(fuelShareLabel({ ...station, petrol_status: 'low', petrol_is_stale: true }, 'petrol', now), 'Stale report · Running low');
 });
 
 test('shared report times use readable elapsed time and an unambiguous CAT date', () => {
