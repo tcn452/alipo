@@ -90,6 +90,8 @@ const CHICHEWA: Record<string, string> = {
   "Malawi's live fuel network. Keep Malawi moving.": 'Netiweki ya mafuta ya Malawi ya pompopompo. Tipitirize kuyendetsa Malawi.',
   "Fuel is there. You're not alone.": 'Mafuta alipo. Simuli nokha.',
   'Find fuel, see queue times and share what you know. Built for every drive moving in Malawi.': 'Pezani mafuta, onani nthawi ya pamzere, ndipo gawani zomwe mukudziwa. Yapangidwa pa ulendo uliwonse ku Malawi.',
+  'Still has fuel': 'Mafuta alipobe',
+  'Confirm availability': 'Tsimikizani mafuta', 'Out': 'Atha', 'Share': 'Gawani', 'Share picture': 'Gawani chithunzi', 'Share station status': 'Gawani za mafuta', 'Choose WhatsApp in your share menu.': 'Sankhani WhatsApp pa menyu yogawana.',
   'Fuel available': 'Mafuta alipo', 'Available': 'Alipo', 'Running low': 'Atsala pang’ono', 'Low supply': 'Mafuta atsala pang’ono', 'No fuel': 'Mafuta palibe', 'Out of fuel': 'Mafuta atha', 'Petrol only': 'Petulo yokha', 'Diesel only': 'Dizilo yokha', 'Fuel in stock': 'Mafuta alipo', 'Stale': 'Lakale', 'Stale report': 'Lipoti lakale', 'Awaiting report': 'Tikuyembekezera lipoti',
   'Search station or area': 'Sakani malo kapena dera', 'Search station, area or brand': 'Sakani malo, dera kapena kampani',
   'Finding you…': 'Tikukupezani…', 'Near me': 'Pafupi ndi ine', 'Use my location': 'Gwiritsani malo anga', 'All Malawi': 'Malawi yonse',

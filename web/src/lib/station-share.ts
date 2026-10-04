@@ -1,11 +1,34 @@
 import type { Station } from '../types/alipo';
 
-export function stationShareUrl(origin: string, stationId: string) {
+// Reversible IDs avoid a link database and UUID prefix collisions.
+export function stationShareCode(stationId: string): string | null {
+  const osm = stationId.match(/^osm-(node|way|relation)-(\d+)$/);
+  if (osm) return `${osm[1][0]}${osm[2]}`;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stationId)) return null;
+  const bytes = stationId.replaceAll('-', '').match(/../g)!.map((hex) => parseInt(hex, 16));
+  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+}
+
+export function stationIdFromShareCode(code: string): string | null {
+  const osm = code.match(/^([nwr])(\d+)$/);
+  if (osm) return `osm-${{ n: 'node', w: 'way', r: 'relation' }[osm[1] as 'n' | 'w' | 'r']}-${osm[2]}`;
+  if (!/^[A-Za-z0-9_-]{22}$/.test(code)) return null;
+  const hex = Array.from(atob(code.replaceAll('-', '+').replaceAll('_', '/') + '=='), (byte) => byte.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+  const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  return stationShareCode(id) === code ? id : null;
+}
+
+export function trackedStationUrl(origin: string, stationId: string) {
   const url = new URL(`/stations/${encodeURIComponent(stationId)}`, origin);
   url.searchParams.set('utm_source', 'whatsapp');
   url.searchParams.set('utm_medium', 'share');
   url.searchParams.set('utm_campaign', 'station_status');
   return url.toString();
+}
+
+export function stationShareUrl(origin: string, stationId: string) {
+  const code = stationShareCode(stationId);
+  return code ? new URL(`/s/${code}`, origin).toString() : trackedStationUrl(origin, stationId);
 }
 
 export function fuelShareLabel(station: Station, fuel: 'petrol' | 'diesel', now = Date.now()) {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { fuelShareLabel, stationShareUrl } from '../src/lib/station-share.ts';
+import { fuelShareLabel, stationShareUrl, stationShareCode, stationIdFromShareCode, trackedStationUrl } from '../src/lib/station-share.ts';
 import { trackEvent, trackFuelUpdate } from '../src/lib/gtag.ts';
 
 test('fuel completion uses an explicit payload allowlist and queues before GA loads', () => {
@@ -18,9 +18,24 @@ test('fuel completion uses an explicit payload allowlist and queues before GA lo
 
 test('WhatsApp links identify the station and preserve attribution', () => {
   const url = new URL(stationShareUrl('https://alipo.co.mw', 'osm-node-123'));
-  assert.equal(url.pathname, '/stations/osm-node-123');
-  assert.equal(url.searchParams.get('utm_source'), 'whatsapp');
-  assert.equal(url.searchParams.get('utm_medium'), 'share');
+  assert.equal(url.toString(), 'https://alipo.co.mw/s/n123');
+  assert.equal(stationIdFromShareCode('n123'), 'osm-node-123');
+  const destination = new URL(trackedStationUrl(url.origin, stationIdFromShareCode('n123')));
+  assert.equal(destination.pathname, '/stations/osm-node-123');
+  assert.equal(destination.searchParams.get('utm_source'), 'whatsapp');
+  assert.equal(destination.searchParams.get('utm_medium'), 'share');
+  assert.equal(destination.searchParams.get('utm_campaign'), 'station_status');
+});
+
+test('short station IDs round-trip the full UUID without collisions or unsafe paths', () => {
+  for (const id of ['91566731-f730-4c92-a34d-407dc5d20e97', '00000000-0000-0000-0000-000000000000', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'osm-way-123', 'osm-relation-999']) {
+    const code = stationShareCode(id);
+    assert.equal(stationIdFromShareCode(code), id);
+    assert.equal(new URL(stationShareUrl('https://alipo.co.mw', id)).search, '');
+  }
+  assert.equal(stationShareCode('https://evil.example'), null);
+  for (const code of ['../bad', 'https://evil.example', 'n123/bad', 'bad', '_____________________x']) assert.equal(stationIdFromShareCode(code), null);
+  assert.ok(stationShareUrl('https://alipo.co.mw', '91566731-f730-4c92-a34d-407dc5d20e97').length < 50);
 });
 
 test('share cards never present expired or missing reports as fresh fuel', () => {
