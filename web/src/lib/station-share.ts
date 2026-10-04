@@ -40,6 +40,19 @@ export function fuelShareLabel(station: Station, fuel: 'petrol' | 'diesel', now 
   return status === 'available' ? 'Fuel available' : status === 'out' ? 'Out of fuel' : status === 'low' ? 'Running low' : 'Unknown';
 }
 
+export function shareReportTime(reported?: string, now = Date.now()) {
+  const timestamp = reported ? Date.parse(reported) : NaN;
+  if (!Number.isFinite(timestamp)) return 'No recent report';
+  const elapsed = now - timestamp;
+  const minutes = Math.floor(elapsed / 60_000);
+  const hours = Math.floor(elapsed / 3_600_000);
+  const days = Math.floor(elapsed / 86_400_000);
+  const relative = elapsed < 0 ? '' : minutes < 1 ? 'just now' : minutes < 60 ? `${minutes} minute${minutes === 1 ? '' : 's'} ago` : hours < 24 ? `${hours} hour${hours === 1 ? '' : 's'} ago` : `${days} day${days === 1 ? '' : 's'} ago`;
+  const date = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Blantyre', day: 'numeric', month: 'short', year: 'numeric' }).format(timestamp);
+  const time = new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Blantyre', hour: 'numeric', minute: '2-digit', hour12: true }).format(timestamp);
+  return `Reported ${relative ? `${relative} · ` : ''}${date}, ${time} CAT`;
+}
+
 export async function stationShareCard(station: Station, url: string): Promise<File> {
   const canvas = document.createElement('canvas');
   canvas.width = 1200; canvas.height = 630;
@@ -55,7 +68,7 @@ export async function stationShareCard(station: Station, url: string): Promise<F
     ctx.font = 'bold 32px sans-serif'; ctx.fillText(`${fuel.toUpperCase()}: ${fuelShareLabel(station, fuel)}`, 50, top, 1100);
     ctx.font = '24px sans-serif';
     const reported = station[`${fuel}_reported_at`];
-    ctx.fillText(reported ? `Reported ${new Date(reported).toLocaleString('en-GB', { timeZone: 'Africa/Blantyre' })} CAT` : 'No recent community report', 50, top + 38, 1100);
+    ctx.fillText(shareReportTime(reported), 50, top + 38, 1100);
   }
   ctx.font = '22px sans-serif'; ctx.fillText('Community reports can change. Check the latest status before travelling.', 50, 535, 1100);
   ctx.fillText(url, 50, 585, 1100);

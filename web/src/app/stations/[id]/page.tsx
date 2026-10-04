@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getSharedStation } from '@/lib/shared-station-server';
-import { fuelShareLabel } from '@/lib/station-share';
+import { fuelShareLabel, shareReportTime } from '@/lib/station-share';
 
 export const dynamic = 'force-dynamic';
 const origin = process.env.NEXT_PUBLIC_SITE_URL || 'https://alipo.co.mw';
@@ -22,7 +22,7 @@ export default async function SharedStation({ params, searchParams }: { params: 
     <h1 className="mt-4 text-3xl font-black">{station?.name || 'Check the latest fuel status'}</h1>
     {station ? <>
       <p className="mt-2 text-muted">{station.district}, {station.city}</p>
-      {(['petrol', 'diesel'] as const).map((fuel) => <div key={fuel} className="mt-5 border border-line bg-white p-4"><h2 className="font-black capitalize">{fuel}: {fuelShareLabel(station, fuel)}</h2><p className="mt-1 text-xs text-muted">{station[`${fuel}_reported_at`] ? `Reported ${new Date(station[`${fuel}_reported_at`]!).toLocaleString('en-GB', { timeZone: 'Africa/Blantyre' })} CAT` : 'No recent report'}</p></div>)}
+      {(['petrol', 'diesel'] as const).map((fuel) => <div key={fuel} className="mt-5 border border-line bg-white p-4"><h2 className="font-black capitalize">{fuel}: {fuelShareLabel(station, fuel)}</h2><p className="mt-1 text-xs text-muted">{shareReportTime(station[`${fuel}_reported_at`])}</p></div>)}
     </> : <p className="mt-3">Open the map to find this station and check current reports.</p>}
     <p className="mt-6 text-sm text-muted">Community reports can change. Check the latest status before travelling.</p>
     <Link href={`/?${query}`} className="mt-5 inline-flex min-h-12 items-center bg-forest px-6 font-bold text-white">Open station on Alipo</Link>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { fuelShareLabel, stationShareUrl, stationShareCode, stationIdFromShareCode, trackedStationUrl } from '../src/lib/station-share.ts';
+import { fuelShareLabel, stationShareUrl, stationShareCode, stationIdFromShareCode, trackedStationUrl, shareReportTime } from '../src/lib/station-share.ts';
 import { trackEvent, trackFuelUpdate } from '../src/lib/gtag.ts';
 
 test('fuel completion uses an explicit payload allowlist and queues before GA loads', () => {
@@ -46,4 +46,15 @@ test('share cards never present expired or missing reports as fresh fuel', () =>
   assert.equal(fuelShareLabel({ ...station, petrol_reported_at: 'invalid' }, 'petrol', now), 'Stale — check before travelling');
   assert.equal(fuelShareLabel({ ...station, petrol_reported_at: undefined }, 'petrol', now), 'Unknown');
   assert.equal(fuelShareLabel({ ...station, petrol_status: 'out' }, 'petrol', now), 'Out of fuel');
+});
+
+test('shared report times use readable elapsed time and an unambiguous CAT date', () => {
+  const now = Date.parse('2026-10-04T18:30:00Z');
+  assert.equal(shareReportTime('2026-10-04T17:30:00Z', now), 'Reported 1 hour ago · 4 Oct 2026, 7:30 PM CAT');
+  assert.match(shareReportTime('2026-10-04T18:25:00Z', now), /^Reported 5 minutes ago/);
+  assert.match(shareReportTime('2026-10-04T18:29:30Z', now), /^Reported just now/);
+  assert.equal(shareReportTime('2026-10-03T18:30:00Z', now), 'Reported 1 day ago · 3 Oct 2026, 8:30 PM CAT');
+  assert.equal(shareReportTime(), 'No recent report');
+  assert.equal(shareReportTime('invalid', now), 'No recent report');
+  assert.doesNotMatch(shareReportTime('2026-10-04T18:31:00Z', now), /ago/);
 });
