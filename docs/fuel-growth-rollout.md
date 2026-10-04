@@ -15,6 +15,19 @@
 
 The measurement ID in this repository is `G-9NR2XVH5WC`. A measurement ID is not a GA property ID or authorization credential. No Google Analytics management connection was available in the build session.
 
+`scripts/ga4-key-events.json` is the canonical list of three key events. An idempotent Admin API setup script previews, creates missing registrations, corrects their counting method, and re-reads the property to verify the result. It leaves all other existing key events alone. Google Analytics Admin API must be enabled for the OAuth client's Google Cloud project. Supply `GA4_PROPERTY_ID` (numeric ID) and `GA4_ACCESS_TOKEN` securely in the operator's environment; the token needs `analytics.edit` scope and Editor access to this property. Never commit or paste tokens into shell commands or conversation.
+
+```sh
+# Read-only preview; no registration changes.
+node scripts/configure-ga4-key-events.mjs
+# Register the three events and verify the result.
+node scripts/configure-ga4-key-events.mjs --apply
+```
+
+Successful apply prints `applied_and_verified`. The script was tested against a mock Admin API, not run against the live property, because the property ID and authorized token are unavailable. This script registers key events only; GA monitoring alerts still require the setup below.
+
+The v1.1 popup emits `release_notes_viewed` (automatic/manual) and `release_notes_dismissed` (close button/continue/Escape), both tagged with `app_version=1.1`. Register `app_version`, `trigger` and `reason` as event-scoped dimensions if needed. These are diagnostic events, not key events; popup exposure must not inflate the reporting/install/alert conversion KPIs.
+
 1. In Admin → Data display → Key events, create/mark `fuel_update_completed`, `app_install`, and `fuel_alert_enabled`. Use **once per event** for completed reports and alerts; installation is already deduplicated on the device. Do not mark `fuel_update_started` or sponsor impressions as key events. `pwa_install` is the companion install diagnostic; use only `app_install` for the install KPI.
 2. Register event-scoped custom dimensions `method`, `fuel_type`, `fuel_status`, `placement` and `sponsor_id` as needed. Existing `method` dimensions may already be registered. Avoid registering high-cardinality station IDs unless a report needs them.
 3. In Reports → Insights → View all insights → Create custom, enable email notifications for monitoring. Recommended initial rules: daily `fuel_update_completed` key events fall >50% against the previous week; daily `app_install` key events fall >50%; failures rise above the established daily baseline. If the builder cannot filter the failure event metric, use a daily GA Data API monitor. Select the team's existing recipients in GA; this change sends no email.
