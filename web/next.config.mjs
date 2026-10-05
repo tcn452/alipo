@@ -8,6 +8,10 @@ const nextConfig = {
   async headers() {
     return [
       {
+        source: '/:asset(favicon|icon-192|icon-512|apple-touch-icon|alipo-lockup|alipo-mark).png',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=86400' }],
+      },
+      {
         source: '/:path*',
         headers: [
           // Explicitly allow same-origin geolocation; some Android browsers (incl. Samsung Internet)

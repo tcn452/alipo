@@ -46,7 +46,7 @@ export function Header({ onOpenReport, onOpenHowItWorks }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 h-[72px] border-b border-line bg-[#fbf8f1]/95 backdrop-blur-xl">
       <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between px-4 sm:px-8 lg:px-12">
-        <Link href="/" className="flex items-center" aria-label="Alipo home">
+        <Link prefetch={false} href="/" className="flex items-center" aria-label="Alipo home">
           <Image
             src="/alipo-mark.png"
             alt="Alipo"
@@ -66,7 +66,7 @@ export function Header({ onOpenReport, onOpenHowItWorks }: HeaderProps) {
         </Link>
 
         <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary navigation">
-          <Link href="/" className="inline-flex items-center gap-2 text-xs font-black text-forest">
+          <Link prefetch={false} href="/" className="inline-flex items-center gap-2 text-xs font-black text-forest">
             <Radio className="h-4 w-4 text-orange" /> {t('Live map')}
           </Link>
           {onOpenHowItWorks ? (
@@ -78,13 +78,13 @@ export function Header({ onOpenReport, onOpenHowItWorks }: HeaderProps) {
               <CircleHelp className="h-4 w-4 text-orange" /> {t('How Alipo works')}
             </button>
           ) : null}
-          <Link href="/stations/candidates" className="inline-flex items-center gap-2 text-xs font-bold text-ink transition hover:text-forest">
+          <Link prefetch={false} href="/stations/candidates" className="inline-flex items-center gap-2 text-xs font-bold text-ink transition hover:text-forest">
             <MapPinned className="h-4 w-4" /> {t('Review stations')}
           </Link>
-          <Link href="/stations/add" className="inline-flex items-center gap-2 text-xs font-bold text-ink transition hover:text-forest">
+          <Link prefetch={false} href="/stations/add" className="inline-flex items-center gap-2 text-xs font-bold text-ink transition hover:text-forest">
             <Plus className="h-4 w-4" /> Add station
           </Link>
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-xs font-bold text-ink transition hover:text-forest">
+          <Link prefetch={false} href="/dashboard" className="inline-flex items-center gap-2 text-xs font-bold text-ink transition hover:text-forest">
             <LayoutDashboard className="h-4 w-4" /> {t('Fleet portal')}
           </Link>
         </nav>

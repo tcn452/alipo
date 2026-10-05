@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alipo-shell-v5';
+const CACHE_NAME = 'alipo-shell-v6';
 const APP_SHELL = ['/', '/manifest.json', '/favicon.png', '/icon-192.png', '/icon-512.png'];
 const LAUNCH_TIMESTAMP = 1790805600000; // 2026-10-01T00:00:00+02:00 (CAT)
 
@@ -60,22 +60,36 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(fetch(event.request, { cache: 'no-store' }));
+  // Leave live APIs, third-party maps, and private pages to the browser.
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+
+  // Build-hashed JS/CSS/fonts never change at the same URL. Reuse them without
+  // contacting the CDN; activation removes the previous service-worker cache.
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = await cache.match(event.request);
+      if (cached) return cached;
+      const response = await fetch(event.request);
+      if (response.ok) await cache.put(event.request, response.clone());
+      return response;
+    })());
     return;
   }
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response.ok && url.origin === self.location.origin) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/')))
-  );
+  // Only cache public HTML navigations. RSC responses and authenticated pages
+  // must never share an offline cache entry with a document.
+  if (event.request.mode !== 'navigate' || !['/', '/privacy'].includes(url.pathname)) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    try {
+      const response = await fetch(event.request);
+      if (response.ok) await cache.put(event.request, response.clone());
+      return response;
+    } catch {
+      return await cache.match(event.request) || await cache.match('/') || Response.error();
+    }
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {
