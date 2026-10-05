@@ -14,6 +14,7 @@ import { SponsorBanner } from '@/components/SponsorBanner';
 import { CITY_CENTERS, DEFAULT_CITY, classifyStationBrand, getStationStockStatus, STATION_STOCK_CONFIG, LAUNCH_DATE, LAUNCH_BYPASS_STORAGE_KEY } from '@/lib/constants';
 import { queryGeolocationPermission, requestCurrentPosition, watchUserPosition, isStandalonePwa, subscribeGeolocationPermissionChange, LOCATION_CONSENT_KEY, shouldResumeLocation, LOCATION_PREFERENCES_KEY, parseLocationPreferences } from '@/lib/geolocation';
 import { Station } from '@/types/alipo';
+import { createRequestCache } from '@/lib/request-cache';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
 import { HowItWorks } from '@/components/HowItWorks';
@@ -70,6 +71,9 @@ type StationStatus = Pick<Station,
   | 'petrol_confirmations' | 'diesel_confirmations'
 > & { updated_at?: string };
 
+const stationRequestCache = createRequestCache();
+const STATION_REFRESH_MS = 60_000;
+
 async function fetchCachedJson<T>(route: string): Promise<T> {
   const response = await fetch(route, { cache: 'no-store' });
   if (!response.ok) throw new Error(`${route} returned ${response.status}`);
@@ -97,8 +101,8 @@ function applyStatus(station: Station, status?: StationStatus): Station {
 
 async function loadCachedStations(city: string, latitude: number, longitude: number, radiusKm: number) {
   const [cataloguePayload, statusPayload] = await Promise.all([
-    fetchCachedJson<{ stations?: Station[] }>('/api/stations/catalog'),
-    fetchCachedJson<{ statuses?: StationStatus[] }>('/api/stations/status').catch(() => ({ statuses: [] })),
+    stationRequestCache.get('/api/stations/catalog', 5 * 60_000, () => fetchCachedJson<{ stations?: Station[] }>('/api/stations/catalog')),
+    stationRequestCache.get('/api/stations/status', 0, () => fetchCachedJson<{ statuses?: StationStatus[] }>('/api/stations/status')).catch(() => ({ statuses: [] })),
   ]);
   const statuses = new Map((statusPayload.statuses || []).map((status) => [status.id, status]));
   const stations = (cataloguePayload.stations || []).map((station) => applyStatus(station, statuses.get(station.id)));
@@ -141,6 +145,8 @@ export default function HomePage() {
   const [isPrelaunch, setIsPrelaunch] = useState<boolean>(true);
   const [launchChecked, setLaunchChecked] = useState<boolean>(false);
   const stationRequestRef = useRef(0);
+  const stationRequestsPendingRef = useRef(0);
+  const lastStationRefreshRef = useRef(0);
   const mapSectionRef = useRef<HTMLDivElement>(null);
   const locationWatchRef = useRef<number | null>(null);
   const followLocationRef = useRef(false);
@@ -217,6 +223,9 @@ export default function HomePage() {
   const closeHowItWorks = useCallback(() => setIsHowItWorksOpen(false), []);
 
   const fetchStations = useCallback(async (background = false) => {
+    if (background && stationRequestsPendingRef.current > 0) return;
+    stationRequestsPendingRef.current += 1;
+    lastStationRefreshRef.current = Date.now();
     const requestId = ++stationRequestRef.current;
     if (!background) setLoading(true);
     try {
@@ -242,7 +251,8 @@ export default function HomePage() {
       setStations(mapped);
       setSelectedStation((current) => current && mapped.some((item) => item.id === current.id) ? current : null);
     } finally {
-      if (!background && requestId === stationRequestRef.current) setLoading(false);
+      stationRequestsPendingRef.current -= 1;
+      if (requestId === stationRequestRef.current) setLoading(false);
     }
   }, [radiusKm, selectedCity, userLocation]);
 
@@ -472,16 +482,19 @@ export default function HomePage() {
   }, [fetchStations, isPrelaunch, isBypassed, launchChecked]);
 
   useEffect(() => {
-    // Poll uncached live readings while visible.
+    // Refresh live status once a minute while visible; reuse the station catalogue.
     if (!launchChecked || (isPrelaunch && !isBypassed)) return;
     const refresh = () => {
       if (document.visibilityState === 'visible') void fetchStations(true);
     };
-    const interval = window.setInterval(refresh, 30_000);
-    document.addEventListener('visibilitychange', refresh);
+    const resume = () => {
+      if (Date.now() - lastStationRefreshRef.current >= STATION_REFRESH_MS) refresh();
+    };
+    const interval = window.setInterval(refresh, STATION_REFRESH_MS);
+    document.addEventListener('visibilitychange', resume);
     return () => {
       window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', refresh);
+      document.removeEventListener('visibilitychange', resume);
     };
   }, [fetchStations, isPrelaunch, isBypassed, launchChecked]);
 
@@ -639,7 +652,7 @@ export default function HomePage() {
               >
                 <CircleHelp className="h-4 w-4" /> {t('How Alipo works')}
               </button>
-              <Link
+              <Link prefetch={false}
                 href="/stations/candidates"
                 className="inline-flex min-h-10 items-center gap-1.5 border border-white/30 px-3 text-xs font-bold text-white/85 transition hover:border-[#f5aa54] hover:text-[#f5aa54]"
               >
@@ -683,8 +696,8 @@ export default function HomePage() {
           <aside className={`${activeTab === 'map' ? 'hidden lg:block' : 'block'} min-w-0 max-w-full border-r border-line bg-[#f8f5ee] px-4 py-6 sm:px-8 lg:px-7`}>
             <div className="mb-3 flex items-end justify-between"><div><p className="eyebrow text-orange">{selectedCity === 'All Cities' ? t('Malawi coverage') : selectedCity === 'My Location' ? t('Near your location') : t('{city} coverage', { city: selectedCity })}</p><h2 className="mt-1 text-xl font-black tracking-[-.03em]">{t(selectedCity !== 'All Cities' ? '{count} fuel stations within {radius} km' : '{count} fuel stations', { count: filteredStations.length, radius: radiusKm })}</h2></div><button onClick={() => void fetchStations()} className="inline-flex items-center gap-2 text-xs font-bold text-forest"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> {t('Refresh')}</button></div>
             <AreaShare city={selectedCity} fuel={selectedFuel} />
-            <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2"><Link href="/stations/add" className="flex min-h-11 items-center justify-between border-2 border-forest bg-forest px-3.5 text-left text-xs font-black text-white shadow-xs transition hover:bg-[#0b5940]"><span className="inline-flex items-center gap-2"><Plus className="h-4 w-4 text-[#f5aa54]" />{t('Add a missing filling station')}</span><ArrowRight className="h-4 w-4 text-[#f5aa54]" /></Link><button type="button" onClick={() => setIsNameSuggestionsOpen(true)} className="flex min-h-11 items-center justify-between border border-forest/20 bg-[#e5eddc] px-3.5 text-left text-xs font-black text-forest transition hover:border-forest"><span className="inline-flex items-center gap-2"><ThumbsUp className="h-4 w-4" />{t('Confirm suggested filling station names')}</span><ArrowRight className="h-4 w-4" /></button></div>
-            {loading ? <div role="status" className="border border-line bg-white p-8 text-center"><RefreshCw className="mx-auto h-6 w-6 animate-spin text-orange" /><p className="mt-3 font-bold">{t('Loading fuel stations')}</p><p className="mt-1 text-sm text-muted">{t('Checking live Alipo coverage…')}</p></div> : filteredStations.length ? <div className="min-w-0 space-y-3 lg:max-h-[650px] lg:overflow-y-auto lg:pr-2">{filteredStations.map((station, index) => <Fragment key={station.id}><StationCard station={station} stationNumber={index + 1} isSelected={selectedStation?.id === station.id} onSelectStation={setSelectedStation} onViewMap={viewStationOnMap} onDataChanged={() => { void fetchStations(); }} onReportClick={(item) => { setSelectedStation(item); setIsReportModalOpen(true); }} />{(index === 2 || (index > 2 && (index - 2) % 6 === 0) || (filteredStations.length < 3 && index === filteredStations.length - 1)) ? <SponsorBanner key={`sponsor-${index}`} slotId={`feed-${index}`} placement="in_feed" city={selectedCity} /> : null}</Fragment>)}<div className="mt-2 border border-dashed border-forest/30 bg-[#f0f5ec] p-4 text-center"><p className="text-xs font-black text-forest">{t("Don't see your local filling station?")}</p><p className="mt-1 text-[11px] text-muted">{t('Add it from home with an address and map pin, or while at the pumps.')}</p><Link href="/stations/add" className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 bg-forest px-4 text-xs font-black text-white transition hover:bg-[#0b5940]"><Plus className="h-4 w-4 text-[#f5aa54]" />{t('Add missing filling station')}</Link></div></div> : <div role="status" className="border border-line bg-white p-5 text-center">
+            <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2"><Link prefetch={false} href="/stations/add" className="flex min-h-11 items-center justify-between border-2 border-forest bg-forest px-3.5 text-left text-xs font-black text-white shadow-xs transition hover:bg-[#0b5940]"><span className="inline-flex items-center gap-2"><Plus className="h-4 w-4 text-[#f5aa54]" />{t('Add a missing filling station')}</span><ArrowRight className="h-4 w-4 text-[#f5aa54]" /></Link><button type="button" onClick={() => setIsNameSuggestionsOpen(true)} className="flex min-h-11 items-center justify-between border border-forest/20 bg-[#e5eddc] px-3.5 text-left text-xs font-black text-forest transition hover:border-forest"><span className="inline-flex items-center gap-2"><ThumbsUp className="h-4 w-4" />{t('Confirm suggested filling station names')}</span><ArrowRight className="h-4 w-4" /></button></div>
+            {loading ? <div role="status" className="border border-line bg-white p-8 text-center"><RefreshCw className="mx-auto h-6 w-6 animate-spin text-orange" /><p className="mt-3 font-bold">{t('Loading fuel stations')}</p><p className="mt-1 text-sm text-muted">{t('Checking live Alipo coverage…')}</p></div> : filteredStations.length ? <div className="min-w-0 space-y-3 lg:max-h-[650px] lg:overflow-y-auto lg:pr-2">{filteredStations.map((station, index) => <Fragment key={station.id}><StationCard station={station} stationNumber={index + 1} isSelected={selectedStation?.id === station.id} onSelectStation={setSelectedStation} onViewMap={viewStationOnMap} onDataChanged={() => { void fetchStations(); }} onReportClick={(item) => { setSelectedStation(item); setIsReportModalOpen(true); }} />{(index === 2 || (index > 2 && (index - 2) % 6 === 0) || (filteredStations.length < 3 && index === filteredStations.length - 1)) ? <SponsorBanner key={`sponsor-${index}`} slotId={`feed-${index}`} placement="in_feed" city={selectedCity} /> : null}</Fragment>)}<div className="mt-2 border border-dashed border-forest/30 bg-[#f0f5ec] p-4 text-center"><p className="text-xs font-black text-forest">{t("Don't see your local filling station?")}</p><p className="mt-1 text-[11px] text-muted">{t('Add it from home with an address and map pin, or while at the pumps.')}</p><Link prefetch={false} href="/stations/add" className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 bg-forest px-4 text-xs font-black text-white transition hover:bg-[#0b5940]"><Plus className="h-4 w-4 text-[#f5aa54]" />{t('Add missing filling station')}</Link></div></div> : <div role="status" className="border border-line bg-white p-5 text-center">
               <Info className="mx-auto h-6 w-6 text-muted" />
               <p className="mt-3 font-bold">{emptyMessage}</p>
               <p className="mt-2 text-sm leading-6 text-muted">{recoveryContext} {t('Missing reports do not mean there is no fuel.')}</p>
@@ -693,7 +706,7 @@ export default function HomePage() {
                 {reportFilters.status !== 'all' || reportFilters.freshness !== 'all' ? <button type="button" onClick={() => setReportFilters({ status: 'all', freshness: 'all' })} className="min-h-11 border border-forest px-3 py-2 text-sm font-bold text-forest">{t('Show all statuses')}</button> : null}
                 {searchQuery ? <button type="button" onClick={() => setSearchQuery('')} className="min-h-11 text-sm font-bold text-forest underline">{t('Clear search')}</button> : null}
                 {selectedFuel !== 'all' ? <button type="button" onClick={() => setSelectedFuel('all')} className="min-h-11 text-sm font-bold text-forest underline">{t('All fuel')}</button> : null}
-                <Link href="/stations/add" className="inline-flex min-h-11 items-center justify-center gap-2 text-xs font-bold text-forest underline">{t('Add missing filling station')}</Link>
+                <Link prefetch={false} href="/stations/add" className="inline-flex min-h-11 items-center justify-center gap-2 text-xs font-bold text-forest underline">{t('Add missing filling station')}</Link>
               </div>
             </div>}
           </aside>
@@ -761,7 +774,7 @@ export default function HomePage() {
 
         <section className="border-t border-line bg-[#eee9dd]"><div className="mx-auto grid max-w-[1440px] gap-6 px-5 py-8 sm:grid-cols-2 sm:px-8 lg:px-12"><div><p className="eyebrow text-orange">{t('No data? No problem.')}</p><h2 className="mt-2 text-xl font-black">{t('Alipo works wherever you drive.')}</h2></div><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center border border-forest/20 text-forest"><MapPin className="h-5 w-5" /></div><div><p className="text-xs text-muted">{t('Community reports')}</p><p className="font-bold">{t('Built around Malawi')}</p></div></div></div></section>
       </main>
-      <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo v{APP_VERSION}</strong> · <button type="button" onClick={() => setIsWhatsNewRequested(true)} className="min-h-10 underline underline-offset-4 hover:text-white">{t('What’s new')}</button> — {t('Find fuel. Share updates. Keep Malawi moving.')}</p><p><Link href="/privacy" className="underline decoration-white/30 underline-offset-4 transition hover:text-white">{t('Privacy Policy')}</Link> · <a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · {t('Created by')} <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
+      <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo v{APP_VERSION}</strong> · <button type="button" onClick={() => setIsWhatsNewRequested(true)} className="min-h-10 underline underline-offset-4 hover:text-white">{t('What’s new')}</button> — {t('Find fuel. Share updates. Keep Malawi moving.')}</p><p><Link prefetch={false} href="/privacy" className="underline decoration-white/30 underline-offset-4 transition hover:text-white">{t('Privacy Policy')}</Link> · <a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · {t('Created by')} <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
       
 
 
