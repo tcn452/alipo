@@ -6,6 +6,7 @@ import { PwaRegistration } from '@/components/PwaRegistration';
 import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 import { LanguageProvider } from '@/lib/i18n';
 import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const bodyFont = DM_Sans({ subsets: ['latin'], variable: '--font-body' });
 const displayFont = Archivo_Black({ weight: '400', subsets: ['latin'], variable: '--font-display' });
@@ -69,6 +70,7 @@ export default function RootLayout({
           {children}
         </LanguageProvider>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
