@@ -62,6 +62,7 @@ export function ReportModal({ isOpen, onClose, stations, selectedStation, onRepo
         ? result.confirmed ? 'The station name is now confirmed and updated.' : 'Suggestion saved. One more matching vote will confirm this name.'
         : 'Your report helps keep Malawi moving.');
       setSuccess(true);
+      if (reportType === 'fuel') window.dispatchEvent(new Event('alipo-report-saved'));
       if (reportType === 'fuel') trackFuelUpdate('completed', { station_id: station.id, city: station.city, fuel_type: fuelType, fuel_status: status, queue_estimate: queueEstimate, response_status: response.status });
       onReportSubmitted();
     } catch (error) {

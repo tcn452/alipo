@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { trackFuelUpdate, trackEvent } from '@/lib/gtag';
 import { ArrowUpRight, BadgeCheck, Bell, BellOff, Check, X, CircleX, ChevronDown, Clock3, MapPin, MapPinned, Navigation, RefreshCw } from 'lucide-react';
 import { classifyStationBrand, getBrandColor, QUEUE_LABELS, STATUS_CONFIG } from '@/lib/constants';
-import { Station, StationReportHistoryItem } from '@/types/alipo';
+import { QueueEstimate, Station, StationReportHistoryItem } from '@/types/alipo';
 import { TimeAgo } from '@/components/TimeAgo';
 import { useLanguage } from '@/lib/i18n';
 import { LocationVote } from '@/components/LocationVote';
@@ -23,6 +23,7 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(false);
   const [confirmingFuel, setConfirmingFuel] = useState<'petrol' | 'diesel' | null>(null);
+  const [queueFuel, setQueueFuel] = useState<'petrol' | 'diesel' | null>(null);
   const [actionMessage, setActionMessage] = useState('');
   const submitting = useRef(false);
   const [watched, setWatched] = useState(false);
@@ -34,20 +35,22 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
     return () => { window.removeEventListener('alipo-watch-changed', refresh); window.removeEventListener('storage', refresh); };
   }, [station.id]);
 
-  const confirmFuel = async (fuel: 'petrol' | 'diesel', status: 'available' | 'out') => {
+  const confirmFuel = async (fuel: 'petrol' | 'diesel', status: 'available' | 'out', queueEstimate?: QueueEstimate) => {
     if (submitting.current) return;
     submitting.current = true;
     setConfirmingFuel(fuel);
     setActionMessage('');
-    const details = { station_id: station.id, city: station.city, fuel_type: fuel, fuel_status: status, method: 'one_tap' as const };
+    const details = { station_id: station.id, city: station.city, fuel_type: fuel, fuel_status: status, queue_estimate: queueEstimate, method: 'one_tap' as const };
     trackFuelUpdate('started', details);
     let responseStatus = 0;
     try {
-      const response = await fetch('/api/reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station, status, fuel_type: fuel }) });
+      const response = await fetch('/api/reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station, status, fuel_type: fuel, queue_estimate: queueEstimate }) });
       responseStatus = response.status;
       if (!response.ok) throw new Error('Report unavailable');
       trackFuelUpdate('completed', { ...details, response_status: response.status });
       setActionMessage(t('Your fuel update was saved. Thank you.'));
+      window.dispatchEvent(new Event('alipo-report-saved'));
+      setQueueFuel(null);
       setHistory(null);
       onDataChanged?.();
     } catch {
@@ -111,23 +114,34 @@ export function StationCard({ station, stationNumber, onReportClick, onViewMap, 
           return <div key={fuel} className="flex items-center justify-between gap-2 py-2">
             <div className="min-w-0"><strong className="text-sm">{t(fuel === 'petrol' ? 'Petrol' : 'Diesel')}</strong><p className={`mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] ${fuelStatus === 'out' ? 'font-bold text-fuel-out' : 'text-muted'}`}><span className="inline-flex items-center gap-1.5 whitespace-nowrap">{fuelStatus === 'out' ? <CircleX aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-fuel-out" /> : <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${config.dot}`} />}{t(label)}</span>{stale ? <span className="rounded bg-[#f3ece8] px-1 py-0.5 text-[9px] font-bold text-[#795548]">{t('Stale')}</span> : null}</p></div>
             <div className="flex shrink-0 items-center rounded border border-line">
-              <button type="button" disabled={confirmingFuel !== null} aria-label={`${t(fuel === 'petrol' ? 'Petrol' : 'Diesel')}: ${t('Still has fuel')}`} onClick={(event) => { event.stopPropagation(); void confirmFuel(fuel, 'available'); }} className="inline-flex min-h-11 items-center gap-1 px-2 text-[11px] font-bold text-forest transition hover:bg-[#e5eddc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest disabled:opacity-50"><Check className="h-3.5 w-3.5" />{t('Still has fuel')}</button>
-              <button type="button" disabled={confirmingFuel !== null} aria-label={`${t(fuel === 'petrol' ? 'Petrol' : 'Diesel')}: ${t('Out of fuel')}`} onClick={(event) => { event.stopPropagation(); void confirmFuel(fuel, 'out'); }} className="inline-flex min-h-11 items-center gap-1 border-l border-line px-2 text-[11px] font-bold text-fuel-out transition hover:bg-[#fff1eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest disabled:opacity-50"><X className="h-3.5 w-3.5" />{t('Out')}</button>
+              <button type="button" disabled={confirmingFuel !== null} aria-expanded={queueFuel === fuel} aria-label={`${t(fuel === 'petrol' ? 'Petrol' : 'Diesel')}: ${t('Still has fuel')}`} onClick={(event) => { event.stopPropagation(); setQueueFuel(fuel); setActionMessage(''); }} className="inline-flex min-h-11 items-center gap-1 px-2 text-[11px] font-bold text-forest transition hover:bg-[#e5eddc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest disabled:opacity-50"><Check className="h-3.5 w-3.5" />{t('Still has fuel')}</button>
+              <button type="button" disabled={confirmingFuel !== null} aria-label={`${t(fuel === 'petrol' ? 'Petrol' : 'Diesel')}: ${t('Out of fuel')}`} onClick={(event) => { event.stopPropagation(); setQueueFuel(null); void confirmFuel(fuel, 'out'); }} className="inline-flex min-h-11 items-center gap-1 border-l border-line px-2 text-[11px] font-bold text-fuel-out transition hover:bg-[#fff1eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest disabled:opacity-50"><X className="h-3.5 w-3.5" />{t('Out')}</button>
             </div>
           </div>;
         })}</div>
       </div>
+
+      {queueFuel ? <fieldset disabled={confirmingFuel !== null} onClick={(event) => event.stopPropagation()} className="mt-3 border border-line bg-[#f8f5ee] p-3">
+        <legend className="px-1 text-xs font-bold text-forest">{t(queueFuel === 'petrol' ? 'Petrol queue right now' : 'Diesel queue right now')}</legend>
+        <p className="mb-2 text-[11px] text-muted">{t('Choose the queue to save your fuel update.')}</p>
+        <div className="grid grid-cols-2 gap-2">{(['none', 'short', 'medium', 'long'] as const).map((estimate) => <button key={estimate} type="button" onClick={() => { void confirmFuel(queueFuel, 'available', estimate); }} className="min-h-11 border border-line bg-white px-2 py-2 text-left text-xs text-ink hover:border-forest focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest disabled:opacity-50"><strong className="block">{t(QUEUE_LABELS[estimate].label)}</strong><span className="text-[11px] text-muted">{t(QUEUE_LABELS[estimate].duration)}</span></button>)}</div>
+        <div className="mt-1 flex flex-wrap justify-between gap-2">
+          <button type="button" onClick={() => { void confirmFuel(queueFuel, 'available'); }} className="min-h-11 text-xs font-bold text-forest underline disabled:opacity-50">{t("I'm not sure")}</button>
+          <button type="button" onClick={() => setQueueFuel(null)} className="min-h-11 text-xs text-muted underline disabled:opacity-50">{t('Cancel')}</button>
+        </div>
+        {confirmingFuel ? <p role="status" className="text-xs text-forest">{t('Saving fuel update…')}</p> : null}
+      </fieldset> : null}
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
         <span>{t('Updated')} <TimeAgo date={station.last_reported_at || station.updated} /></span>
         {queue?.duration ? <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{t('Queue')} · {t(queue.duration)}</span> : null}
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <a onClick={(event) => event.stopPropagation()} href={`https://www.google.com/maps/dir/?api=1&destination=${station.latitude},${station.longitude}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 bg-forest px-3 text-xs font-black text-white transition hover:bg-[#0b5940] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"><Navigation className="h-4 w-4 text-[#f5aa54]" />{t('Directions')}</a>
+        <a onClick={(event) => { event.stopPropagation(); trackEvent('station_directions_opened', { station_id: station.id, city: station.city }); }} href={`https://www.google.com/maps/dir/?api=1&destination=${station.latitude},${station.longitude}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 bg-forest px-3 text-xs font-black text-white transition hover:bg-[#0b5940] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"><Navigation className="h-4 w-4 text-[#f5aa54]" />{t('Directions')}</a>
         <button type="button" onClick={(event) => { event.stopPropagation(); onReportClick(station); }} className="inline-flex min-h-11 items-center justify-center gap-2 border border-forest px-3 text-xs font-black text-forest transition hover:bg-[#e5eddc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest">{t('Update fuel')}<ArrowUpRight className="h-4 w-4" /></button>
       </div>
       <div className="mt-1 grid grid-cols-3 gap-1 text-[11px] font-bold text-muted">
-        <button type="button" onClick={(event) => { event.stopPropagation(); onViewMap(station); }} className="inline-flex min-h-11 items-center justify-center gap-1.5 hover:text-forest focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest"><MapPinned className="h-3.5 w-3.5" />{t('Map')}</button>
+        <button type="button" onClick={(event) => { event.stopPropagation(); trackEvent('station_map_opened', { station_id: station.id, city: station.city }); onViewMap(station); }} className="inline-flex min-h-11 items-center justify-center gap-1.5 hover:text-forest focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest"><MapPinned className="h-3.5 w-3.5" />{t('Map')}</button>
         <button type="button" aria-expanded={historyOpen} onClick={(event) => { event.stopPropagation(); void toggleHistory(); }} className="inline-flex min-h-11 items-center justify-center gap-1.5 hover:text-forest focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest">{t(historyOpen ? 'Hide' : 'Details')}<ChevronDown className={`h-3.5 w-3.5 transition ${historyOpen ? 'rotate-180' : ''}`} /></button>
         <StationShare station={station} />
       </div>

@@ -1,3 +1,5 @@
+import { track as trackVercel } from '@vercel/analytics';
+
 export const GA_TRACKING_ID = 'G-9NR2XVH5WC';
 
 type GtagEventParams = Record<string, string | number | boolean | null | undefined>;
@@ -24,14 +26,47 @@ declare global {
   }
 }
 
-/**
- * Log a generic Google Analytics custom event
- */
+// Keep Vercel's events focused on product actions. GA promotion/install aliases
+// remain in GA only so one action does not become two Vercel events.
+const VERCEL_EVENT_PROPERTIES: Record<string, readonly string[]> = {
+  fuel_update_started: ['station_id', 'city', 'fuel_type', 'fuel_status', 'queue_estimate', 'response_status', 'method'],
+  fuel_update_completed: ['station_id', 'city', 'fuel_type', 'fuel_status', 'queue_estimate', 'response_status', 'method'],
+  fuel_update_failed: ['station_id', 'city', 'fuel_type', 'fuel_status', 'response_status', 'method'],
+  sponsor_impression: ['sponsor_id', 'sponsor_name', 'placement', 'city'],
+  sponsor_click: ['sponsor_id', 'sponsor_name', 'placement', 'city'],
+  advertising_rate_card_opened: ['placement'],
+  advertising_enquiry: ['method'],
+  share: ['method', 'content_type', 'area_id', 'fuel_type'],
+  area_report_viewed: ['area_id', 'fuel_type'],
+  station_saved: ['station_id'],
+  station_unsaved: ['station_id'],
+  station_directions_opened: ['station_id', 'city'],
+  station_map_opened: ['station_id', 'city'],
+  fuel_alert_enabled: ['station_count'],
+  fuel_alert_disabled: [],
+  pwa_install: ['platform', 'trigger'],
+  launch_alert_permission: ['status'],
+  release_notes_viewed: ['app_version', 'trigger'],
+  release_notes_dismissed: ['app_version', 'reason'],
+};
+
+/** Track product actions in GA4 and Vercel without blocking the user's action. */
 export function trackEvent(eventName: string, params?: GtagEventParams) {
   if (typeof window === 'undefined') return;
-  window.dataLayer ||= [];
-  window.gtag ||= function () { window.dataLayer!.push(arguments); };
-  window.gtag('event', eventName, params);
+  const keys = VERCEL_EVENT_PROPERTIES[eventName];
+  if (keys) {
+    const properties: GtagEventParams = {};
+    for (const key of keys) {
+      const value = params?.[key];
+      if (typeof value === 'string' || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) properties[key] = value;
+    }
+    try { trackVercel(eventName, properties); } catch { /* Analytics must not block reporting or navigation. */ }
+  }
+  try {
+    window.dataLayer ||= [];
+    window.gtag ||= function () { window.dataLayer!.push(arguments); };
+    window.gtag('event', eventName, params);
+  } catch { /* Analytics must not block reporting or navigation. */ }
 }
 
 /**
@@ -129,6 +164,6 @@ export function trackSponsorClick(
 }
 
 /** A share action; WhatsApp cannot confirm that a message was actually sent. */
-export function trackAreaShare(method: 'native' | 'whatsapp', areaId: string, fuel: 'petrol' | 'diesel') {
+export function trackAreaShare(method: 'native' | 'whatsapp' | 'facebook' | 'copy_link', areaId: string, fuel: 'petrol' | 'diesel') {
   trackEvent('share', { method, content_type: 'area_status', item_id: `${areaId}:${fuel}`, area_id: areaId, fuel_type: fuel });
 }
