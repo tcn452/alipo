@@ -35,6 +35,7 @@ const VERCEL_EVENT_PROPERTIES: Record<string, readonly string[]> = {
   sponsor_impression: ['sponsor_id', 'sponsor_name', 'placement', 'city'],
   sponsor_click: ['sponsor_id', 'sponsor_name', 'placement', 'city'],
   advertising_rate_card_opened: ['placement'],
+  donation_link_opened: ['placement'],
   advertising_enquiry: ['method'],
   share: ['method', 'content_type', 'area_id', 'fuel_type'],
   area_report_viewed: ['area_id', 'fuel_type'],

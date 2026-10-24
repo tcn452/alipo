@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ArrowRight, Bell, CircleHelp, Info, List, Map as MapIcon, MapPin, MapPinned, Navigation, Plus, RefreshCw, ThumbsUp, XCircle } from 'lucide-react';
 import { AdvertiseLink } from '@/components/AdvertiseLink';
+import { DonateLink } from '@/components/DonateLink';
 import { CommunityActivity } from '@/components/CommunityActivity';
 import { Header } from '@/components/Header';
 import { ReportModal } from '@/components/ReportModal';
@@ -662,6 +663,7 @@ export default function HomePage() {
                 <MapPinned className="h-3.5 w-3.5" /> {t('Review proposed station locations')}
               </Link>
               <AdvertiseLink placement="welcome" className="text-white/85 hover:text-[#f5aa54]" />
+              <DonateLink placement="welcome" className="text-white/85 hover:text-[#f5aa54]" />
             </div>
           </div>
         </section>
@@ -778,7 +780,7 @@ export default function HomePage() {
 
         <section className="border-t border-line bg-[#eee9dd]"><div className="mx-auto grid max-w-[1440px] gap-6 px-5 py-8 sm:grid-cols-2 sm:px-8 lg:px-12"><div><p className="eyebrow text-orange">{t('No data? No problem.')}</p><h2 className="mt-2 text-xl font-black">{t('Alipo works wherever you drive.')}</h2></div><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center border border-forest/20 text-forest"><MapPin className="h-5 w-5" /></div><div><p className="text-xs text-muted">{t('Community reports')}</p><p className="font-bold">{t('Built around Malawi')}</p></div></div></div></section>
       </main>
-      <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo v{APP_VERSION}</strong> · <button type="button" onClick={() => setIsWhatsNewRequested(true)} className="min-h-10 underline underline-offset-4 hover:text-white">{t('What’s new')}</button> — {t('Find fuel. Share updates. Keep Malawi moving.')}</p><p><AdvertiseLink placement="footer" className="text-white" /> · <Link prefetch={false} href="/privacy" className="underline decoration-white/30 underline-offset-4 transition hover:text-white">{t('Privacy Policy')}</Link> · <a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · {t('Created by')} <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
+      <footer className="bg-[#032e20] px-5 py-6 text-xs text-white/55"><div className="mx-auto flex max-w-[1440px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p><strong className="text-white">Alipo v{APP_VERSION}</strong> · <button type="button" onClick={() => setIsWhatsNewRequested(true)} className="min-h-10 underline underline-offset-4 hover:text-white">{t('What’s new')}</button> — {t('Find fuel. Share updates. Keep Malawi moving.')}</p><p><AdvertiseLink placement="footer" className="text-white" /> · <DonateLink placement="footer" className="text-white hover:text-[#f5aa54]" /> · <Link prefetch={false} href="/privacy" className="underline decoration-white/30 underline-offset-4 transition hover:text-white">{t('Privacy Policy')}</Link> · <a href="mailto:info@wekode.dev" className="transition hover:text-white">info@wekode.dev</a> · WhatsApp +27 68 602 1556 · {t('Created by')} <a href="https://wekode.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-white underline decoration-white/30 underline-offset-4 transition hover:decoration-white">WeKode</a></p></div></footer>
       
 
 
